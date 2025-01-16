@@ -463,8 +463,10 @@ class DXFCanvas(QWidget):
         return QColor(0, 0, 0)  # Varsayılan siyah
     
     def _aci_to_rgb(self, color_index):
-        """AutoCAD Color Index (ACI) rengini RGB'ye çevirir"""
-        # AutoCAD standart renk tablosu (genişletilmiş)
+        """
+        AutoCAD Color Index (ACI) rengini RGB'ye çevirme işlemleri
+        """
+        # AutoCAD standart renk tablosu
         aci_colors = {
             0: (0, 0, 0),       # Siyah (ByBlock)
             1: (255, 0, 0),     # Kırmızı
