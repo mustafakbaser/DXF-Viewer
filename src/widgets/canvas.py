@@ -219,17 +219,36 @@ class DXFCanvas(QWidget):
         dx = self.bounds[2] - self.bounds[0]
         dy = self.bounds[3] - self.bounds[1]
         
+        # Padding ekle (çizim alanının %15'i kadar)
+        padding_factor = 0.15
+        padding_x = dx * padding_factor
+        padding_y = dy * padding_factor
+        
+        # Padding'li toplam boyutlar
+        total_width = dx + 2 * padding_x
+        total_height = dy + 2 * padding_y
+        
         # Ölçeklendirme faktörünü hesapla
-        scale_x = width / dx if dx != 0 else 1
-        scale_y = height / dy if dy != 0 else 1
-        new_scale = min(scale_x, scale_y) * 0.9  # %90 doluluk oranı
+        scale_x = width / total_width if total_width != 0 else 1
+        scale_y = height / total_height if total_height != 0 else 1
         
-        # Scale değerinin 0 olmamasını sağla
-        self.scale = max(new_scale, 0.0001)
+        # En küçük ölçeği kullan (en iyi uyum için)
+        self.scale = max(min(scale_x, scale_y), 0.0001)
         
-        # Merkeze konumlandır
-        self.pan_x = width/2 - (self.bounds[0] + dx/2) * self.scale
-        self.pan_y = height/2 - (self.bounds[1] + dy/2) * self.scale
+        # Merkez noktaları hesapla
+        world_center_x = self.bounds[0] + dx/2
+        world_center_y = self.bounds[1] + dy/2
+        
+        # Viewport merkezi
+        viewport_center_x = width/2
+        viewport_center_y = height/2
+        
+        # Pan değerlerini hesapla
+        self.pan_x = viewport_center_x - (world_center_x * self.scale)
+        self.pan_y = viewport_center_y + (world_center_y * self.scale)  # Y ekseni ters olduğu için toplama
+        
+        # Minimum zoom seviyesini kaydet
+        self.min_scale = self.scale * 0.5
     
     def paintEvent(self, event):
         if not self.doc:
@@ -558,15 +577,21 @@ class DXFCanvas(QWidget):
         old_pos = event.position()
         old_scene_pos = self._screen_to_world(old_pos)
         
-        # Zoom faktörünü hesapla ve minimum değeri kontrol et
+        # Zoom faktörünü hesapla
         delta = event.angleDelta().y()
-        if delta > 0:
-            new_scale = self.scale * 1.2
-        else:
-            new_scale = self.scale / 1.2
+        zoom_factor = 1.1  # Daha hassas zoom için
         
-        # Scale değerinin 0 olmamasını sağla
-        self.scale = max(new_scale, 0.0001)
+        if delta > 0:
+            new_scale = self.scale * zoom_factor
+        else:
+            new_scale = self.scale / zoom_factor
+        
+        # Minimum ve maksimum zoom sınırlarını kontrol et
+        max_scale = self.min_scale * 20  # Maksimum 20x zoom
+        new_scale = max(min(new_scale, max_scale), self.min_scale)
+        
+        # Yeni scale'i uygula
+        self.scale = new_scale
         
         # Fare pozisyonunu koruyarak zoom
         new_scene_pos = self._screen_to_world(old_pos)

@@ -259,7 +259,7 @@ class FilePanel(QWidget):
             item.setCheckState(0, Qt.CheckState.Unchecked) 
     
     def _set_bold_layer(self, item):
-        """Katman yazı tipini kalın yap"""
+        """Katman yazı tipini kalın yap (Mevcut katmanı göster)"""
         font = item.font(0)
         font.setBold(True)
         item.setFont(0, font)
