@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout
-from PyQt6.QtCore import Qt, QPointF
-from PyQt6.QtGui import QPainter, QPen, QColor
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QRubberBand, QApplication
+from PyQt6.QtCore import Qt, QPointF, QRectF, QPoint, QRect
+from PyQt6.QtGui import QPainter, QPen, QColor, QBrush
 import ezdxf
 from ezdxf.math import Vec2
 import math
@@ -17,10 +17,18 @@ class DXFCanvas(QWidget):
         self.bounds = None
         self.hidden_layers = set()  # Gizli katmanları takip et
         
+        # Seçim için yeni değişkenler
+        self.selected_entities = set()
+        self.selection_mode = False
+        self.rubber_band = None
+        self.selection_start = None
+        self.highlight_color = QColor(0, 120, 215, 100)  # Yarı saydam mavi
+        
     def _init_ui(self):
         self.setMinimumSize(400, 300)
         layout = QVBoxLayout(self)
         self.setLayout(layout)
+        self.setMouseTracking(True)  # Fare hareketlerini takip et
         
     def load_dxf(self, filepath):
         try:
@@ -112,19 +120,24 @@ class DXFCanvas(QWidget):
         if entity.dxf.layer in self.hidden_layers:
             return
         
-        # Renk ve kalem ayarları
-        color = self._get_entity_color(entity)
-        pen = QPen(color)
-        pen.setWidth(0)  # Sabit piksel genişliği
-        
-        # Çizgi tipi ayarları
-        if hasattr(entity.dxf, 'linetype'):
-            self._apply_linetype(pen, entity.dxf.linetype)
-        
-        painter.setPen(pen)
-        
         entity_type = entity.dxftype()
         
+        # Seçili entiteleri vurgula
+        if entity in self.selected_entities:
+            # Vurgulama için kalın ve renkli kalem
+            pen = QPen(self.highlight_color)
+            pen.setWidth(3)  # Daha kalın çizgi
+            painter.setPen(pen)
+        else:
+            # Normal çizim için standart kalem
+            color = self._get_entity_color(entity)
+            pen = QPen(color)
+            pen.setWidth(0)
+            if hasattr(entity.dxf, 'linetype'):
+                self._apply_linetype(pen, entity.dxf.linetype)
+            painter.setPen(pen)
+        
+        # Entity tipine göre çizim
         if entity_type == 'LINE':
             start = entity.dxf.start
             end = entity.dxf.end
@@ -136,6 +149,8 @@ class DXFCanvas(QWidget):
         elif entity_type == 'CIRCLE':
             center = entity.dxf.center
             radius = entity.dxf.radius
+            if entity in self.selected_entities:
+                painter.setBrush(QBrush(self.highlight_color.lighter(150)))
             painter.drawEllipse(
                 QPointF(center[0], center[1]),
                 radius, radius
@@ -236,26 +251,117 @@ class DXFCanvas(QWidget):
         self.update()
     
     def _screen_to_world(self, pos):
-        return (
-            (pos.x() - self.pan_x) / self.scale,
-            (pos.y() - self.pan_y) / -self.scale
-        )
+        # Ekran koordinatlarını dünya koordinatlarına çevir
+        wx = (pos.x() - self.pan_x) / self.scale
+        wy = (pos.y() - self.pan_y) / self.scale
+        return (wx, wy)
         
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
-            self.last_pos = event.pos()
-            
+            if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+                # Seçim modu
+                self.selection_mode = True
+                self.selection_start = event.pos()
+                if not self.rubber_band:
+                    self.rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self)
+                # Seçim alanını başlat
+                self.rubber_band.setGeometry(
+                    QRect(self.selection_start, self.selection_start)
+                )
+                self.rubber_band.show()
+            else:
+                # Pan modu
+                self.last_pos = event.pos()
+    
     def mouseMoveEvent(self, event):
-        if event.buttons() & Qt.MouseButton.LeftButton:
+        if self.selection_mode and self.rubber_band:
+            # İki nokta arasında dikdörtgen oluştur
+            rect = QRect(self.selection_start, event.pos()).normalized()
+            self.rubber_band.setGeometry(rect)
+        elif event.buttons() & Qt.MouseButton.LeftButton:
+            # Pan işlemi
             diff = event.pos() - self.last_pos
             self.pan_x += diff.x()
             self.pan_y += diff.y()
             self.last_pos = event.pos()
-            self.update() 
+            self.update()
+    
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.selection_mode:
+            if self.rubber_band:
+                # Seçim alanını al
+                selection_rect = self.rubber_band.geometry()
+                self.rubber_band.hide()
+                
+                # Seçim alanındaki entiteleri bul
+                self._select_entities_in_rect(selection_rect)
+                
+            self.selection_mode = False
+            self.update()
+    
+    def _select_entities_in_rect(self, rect):
+        # Ekran koordinatlarını dünya koordinatlarına çevir
+        top_left = self._screen_to_world(QPointF(rect.left(), rect.top()))
+        bottom_right = self._screen_to_world(QPointF(rect.right(), rect.bottom()))
+        
+        selection_bounds = (
+            min(top_left[0], bottom_right[0]),
+            min(-top_left[1], -bottom_right[1]),  # Y koordinatları ters çevrilmiş
+            max(top_left[0], bottom_right[0]),
+            max(-top_left[1], -bottom_right[1])   # Y koordinatları ters çevrilmiş
+        )
+        
+        # CTRL tuşu basılı değilse önceki seçimi temizle
+        if not (QApplication.keyboardModifiers() & Qt.KeyboardModifier.ControlModifier):
+            self.selected_entities.clear()
+        
+        # Seçim alanı içindeki entiteleri bul
+        for entity in self.entities:
+            if self._entity_in_bounds(entity, selection_bounds):
+                self.selected_entities.add(entity)
+    
+    def _entity_in_bounds(self, entity, bounds):
+        entity_type = entity.dxftype()
+        
+        if entity_type == 'LINE':
+            start = entity.dxf.start
+            end = entity.dxf.end
+            return self._line_in_bounds(start, end, bounds)
+            
+        elif entity_type in ('CIRCLE', 'ARC'):
+            center = entity.dxf.center
+            radius = entity.dxf.radius
+            return self._circle_in_bounds(center, radius, bounds)
+            
+        elif entity_type in ('LWPOLYLINE', 'POLYLINE'):
+            points = list(entity.get_points('xy')) if entity_type == 'LWPOLYLINE' else \
+                    [vertex.dxf.location for vertex in entity.vertices]
+            return any(self._point_in_bounds(p, bounds) for p in points)
+        
+        return False
+    
+    def _line_in_bounds(self, start, end, bounds):
+        # Basit çakışma kontrolü - geliştirilmesi gerekebilir
+        return (self._point_in_bounds(start, bounds) or 
+                self._point_in_bounds(end, bounds))
+    
+    def _circle_in_bounds(self, center, radius, bounds):
+        return self._point_in_bounds(center, bounds)
+    
+    def _point_in_bounds(self, point, bounds):
+        # Nokta sınırlar içinde mi kontrol et
+        x, y = point[0], point[1]
+        return (bounds[0] <= x <= bounds[2] and 
+                bounds[1] <= y <= bounds[3])
     
     def set_layer_visibility(self, layer_name: str, visible: bool):
         if not visible:
             self.hidden_layers.add(layer_name)
         else:
             self.hidden_layers.discard(layer_name)
+        self.update() 
+    
+    def clear_selection(self):
+        """Tüm seçimleri temizle"""
+        self.selected_entities.clear()
         self.update() 
