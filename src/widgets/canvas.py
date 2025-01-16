@@ -129,9 +129,19 @@ class DXFCanvas(QWidget):
         try:
             self.doc = ezdxf.readfile(filepath)
             self.entities = list(self.doc.modelspace())
-            # Debug için entity tiplerini yazdır
+            
+            # Debug için entity tiplerini ve renklerini yazdır
             for entity in self.entities:
-                print(f"Yüklenen entity tipi: {entity.dxftype()}")
+                color_info = ""
+                if hasattr(entity.dxf, 'color'):
+                    color_info = f"ACI: {entity.dxf.color}"
+                if hasattr(entity, 'rgb') and entity.rgb:
+                    color_info += f", RGB: {entity.rgb}"
+                
+                print(f"Entity: {entity.dxftype()}, "
+                      f"Layer: {entity.dxf.layer}, "
+                      f"Color: {color_info}")
+            
             self._calculate_bounds()
             self._center_view()
             self.update()
@@ -426,18 +436,118 @@ class DXFCanvas(QWidget):
         try:
             # Önce entity'nin kendi rengi
             if hasattr(entity.dxf, 'color') and entity.dxf.color is not None:
-                rgb = entity.rgb
-                if rgb is not None:
-                    return QColor(*rgb)
+                color_index = entity.dxf.color
+                # 0 = ByBlock, 256 = ByLayer, 257 = ByLayer
+                if color_index == 0 or color_index > 255:  # ByBlock veya ByLayer
+                    layer = self.doc.layers.get(entity.dxf.layer)
+                    if layer and hasattr(layer.dxf, 'color'):
+                        color_index = layer.dxf.color
+                
+                # RGB değeri varsa onu kullan
+                if hasattr(entity, 'rgb') and entity.rgb is not None:
+                    return QColor(*entity.rgb)
+                # ACI renk kodunu RGB'ye çevir
+                elif color_index >= 0:
+                    return self._aci_to_rgb(color_index)
             
             # Katman rengi
             layer = self.doc.layers.get(entity.dxf.layer)
-            if layer and layer.rgb is not None:
-                return QColor(*layer.rgb)
-        except:
-            pass
+            if layer:
+                if layer.rgb is not None:
+                    return QColor(*layer.rgb)
+                elif hasattr(layer.dxf, 'color') and layer.dxf.color >= 0:
+                    return self._aci_to_rgb(layer.dxf.color)
+        except Exception as e:
+            print(f"Renk dönüşüm hatası: {str(e)}")
         
         return QColor(0, 0, 0)  # Varsayılan siyah
+    
+    def _aci_to_rgb(self, color_index):
+        """AutoCAD Color Index (ACI) rengini RGB'ye çevirir"""
+        # AutoCAD standart renk tablosu (genişletilmiş)
+        aci_colors = {
+            0: (0, 0, 0),       # Siyah (ByBlock)
+            1: (255, 0, 0),     # Kırmızı
+            2: (255, 255, 0),   # Sarı
+            3: (0, 255, 0),     # Yeşil
+            4: (0, 255, 255),   # Cyan
+            5: (0, 0, 255),     # Mavi
+            6: (255, 0, 255),   # Magenta
+            7: (255, 255, 255), # Beyaz (ByLayer)
+            8: (128, 128, 128), # Koyu Gri
+            9: (192, 192, 192), # Açık Gri
+            10: (255, 0, 0),    # Kırmızı
+            11: (255, 127, 127),
+            12: (204, 0, 0),
+            13: (204, 102, 102),
+            14: (153, 0, 0),
+            15: (153, 76, 76),
+            20: (255, 63, 0),
+            30: (255, 127, 0),
+            40: (255, 191, 0),
+            50: (255, 255, 0),  # Sarı
+            60: (191, 255, 0),
+            70: (127, 255, 0),
+            80: (63, 255, 0),
+            90: (0, 255, 0),    # Yeşil
+            100: (0, 255, 63),
+            110: (0, 255, 127),
+            120: (0, 255, 191),
+            130: (0, 255, 255), # Cyan
+            140: (0, 191, 255),
+            150: (0, 127, 255),
+            160: (0, 63, 255),
+            170: (0, 0, 255),   # Mavi
+            180: (63, 0, 255),
+            190: (127, 0, 255),
+            200: (191, 0, 255),
+            210: (255, 0, 255), # Magenta
+            220: (255, 0, 191),
+            230: (255, 0, 127),
+            240: (255, 0, 63),
+            250: (51, 51, 51),
+            251: (91, 91, 91),
+            252: (132, 132, 132),
+            253: (173, 173, 173),
+            254: (214, 214, 214),
+            255: (255, 255, 255)
+        }
+        
+        # Özel renk indeksleri için renk hesaplama
+        if color_index not in aci_colors:
+            if 0 <= color_index <= 255:
+                # Daha gelişmiş renk hesaplama algoritması
+                hue = (color_index % 6) * 60  # 0-360 arası HSV renk tonu
+                sat = 1.0  # Doygunluk
+                val = min(1.0, (color_index % 25) / 24.0)  # Parlaklık
+                
+                # HSV'den RGB'ye dönüşüm
+                c = val * sat
+                x = c * (1 - abs((hue / 60) % 2 - 1))
+                m = val - c
+                
+                if 0 <= hue < 60:
+                    r, g, b = c, x, 0
+                elif 60 <= hue < 120:
+                    r, g, b = x, c, 0
+                elif 120 <= hue < 180:
+                    r, g, b = 0, c, x
+                elif 180 <= hue < 240:
+                    r, g, b = 0, x, c
+                elif 240 <= hue < 300:
+                    r, g, b = x, 0, c
+                else:
+                    r, g, b = c, 0, x
+                
+                return QColor(
+                    int((r + m) * 255),
+                    int((g + m) * 255),
+                    int((b + m) * 255)
+                )
+        
+        # Standart renk tablosundan rengi al
+        rgb = aci_colors.get(color_index, (0, 0, 0))
+        return QColor(*rgb)
     
     def _apply_linetype(self, pen, linetype_name):
         if linetype_name == 'CONTINUOUS':
