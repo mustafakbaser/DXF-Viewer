@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QPushButton,
                            QLabel, QFileDialog, QTextEdit, QTreeWidget,
                            QTreeWidgetItem, QCheckBox, QHBoxLayout, QToolBar, QFrame)
 from PyQt6.QtCore import pyqtSignal, Qt
-from PyQt6.QtGui import QColor, QIcon, QAction
+from PyQt6.QtGui import QColor, QIcon, QAction, QFont
 from dxf_handler import DXFHandler
 
 class LayerItem(QTreeWidgetItem):
@@ -129,30 +129,44 @@ class FilePanel(QWidget):
             item.setCheckState(0, Qt.CheckState.Unchecked)
     
     def _select_previous_layer(self):
-        """Önceki katmanı seç"""
+        """Önceki katmanı göster, diğerlerini gizle"""
         current_item = self.layer_tree.currentItem()
         if not current_item:
             return
             
         current_index = self.layer_tree.indexOfTopLevelItem(current_item)
         if current_index > 0:
+            # Mevcut katmanın yazı tipini normale çevir
+            self._set_normal_layer(current_item)
+            
+            # Tüm katmanları gizle
+            self._hide_all_layers()
+            
+            # Önceki katmanı bul, göster ve kalın yap
             prev_item = self.layer_tree.topLevelItem(current_index - 1)
             self.layer_tree.setCurrentItem(prev_item)
             prev_item.setCheckState(0, Qt.CheckState.Checked)
-            current_item.setCheckState(0, Qt.CheckState.Unchecked)
+            self._set_bold_layer(prev_item)
     
     def _select_next_layer(self):
-        """Sonraki katmanı seç"""
+        """Sonraki katmanı göster, diğerlerini gizle"""
         current_item = self.layer_tree.currentItem()
         if not current_item:
             return
             
         current_index = self.layer_tree.indexOfTopLevelItem(current_item)
         if current_index < self.layer_tree.topLevelItemCount() - 1:
+            # Mevcut katmanın yazı tipini normale çevir
+            self._set_normal_layer(current_item)
+            
+            # Tüm katmanları gizle
+            self._hide_all_layers()
+            
+            # Sonraki katmanı bul, göster ve kalın yap
             next_item = self.layer_tree.topLevelItem(current_index + 1)
             self.layer_tree.setCurrentItem(next_item)
             next_item.setCheckState(0, Qt.CheckState.Checked)
-            current_item.setCheckState(0, Qt.CheckState.Unchecked)
+            self._set_bold_layer(next_item)
     
     def _select_file(self):
         filepath, _ = QFileDialog.getOpenFileName(
@@ -176,15 +190,18 @@ class FilePanel(QWidget):
         for layer in self.dxf_handler.doc.layers:
             color = self._get_layer_color(layer)
             item = LayerItem(layer.dxf.name, color)
+            # Başlangıçta tüm katmanları seçili yap
+            item.setCheckState(0, Qt.CheckState.Checked)
             self.layer_tree.addTopLevelItem(item)
         
         # Katmanlar yüklendiğinde butonları aktif et
         self._update_button_states(True)
         
-        # İlk katmanı seç
+        # İlk katmanı seçili yap ve kalın göster
         if self.layer_tree.topLevelItemCount() > 0:
             first_item = self.layer_tree.topLevelItem(0)
             self.layer_tree.setCurrentItem(first_item)
+            self._set_bold_layer(first_item)
     
     def _get_layer_color(self, layer):
         try:
@@ -233,3 +250,22 @@ class FilePanel(QWidget):
         for entity_type, count in info.entity_counts.items():
             text += f"- {entity_type}: {count}\n"
         self.info_display.setText(text) 
+    
+    def _hide_all_layers(self):
+        """Tüm katmanları gizle"""
+        root = self.layer_tree.invisibleRootItem()
+        for i in range(root.childCount()):
+            item = root.child(i)
+            item.setCheckState(0, Qt.CheckState.Unchecked) 
+    
+    def _set_bold_layer(self, item):
+        """Katman yazı tipini kalın yap"""
+        font = item.font(0)
+        font.setBold(True)
+        item.setFont(0, font)
+    
+    def _set_normal_layer(self, item):
+        """Katman yazı tipini normale çevir"""
+        font = item.font(0)
+        font.setBold(False)
+        item.setFont(0, font) 
