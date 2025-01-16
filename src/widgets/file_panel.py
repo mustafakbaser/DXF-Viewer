@@ -187,14 +187,39 @@ class FilePanel(QWidget):
             self.layer_tree.setCurrentItem(first_item)
     
     def _get_layer_color(self, layer):
-        # ACI (AutoCAD Color Index) rengini RGB'ye dönüştür
         try:
-            rgb = layer.rgb
-            if rgb is None:  # Eğer RGB tanımlanmamışsa
-                return QColor(0, 0, 0)  # Varsayılan siyah
-            return QColor(*rgb)
-        except:
-            return QColor(0, 0, 0)
+            # Önce RGB değerini kontrol et
+            if layer.rgb is not None:
+                return QColor(*layer.rgb)
+            
+            # ACI rengi kontrol et
+            if hasattr(layer.dxf, 'color'):
+                color_index = layer.dxf.color
+                if color_index >= 0:
+                    return self._aci_to_rgb(color_index)
+        except Exception as e:
+            print(f"Katman rengi dönüşüm hatası: {str(e)}")
+        
+        return QColor(255, 255, 255)  # Varsayılan beyaz
+    
+    def _aci_to_rgb(self, color_index):
+        """AutoCAD Color Index (ACI) rengini RGB'ye çevirir"""
+        # AutoCAD standart renk tablosu
+        aci_colors = {
+            0: (255, 255, 255),   # ByBlock (Beyaz)
+            1: (255, 0, 0),       # Kırmızı
+            2: (255, 255, 0),     # Sarı
+            3: (0, 255, 0),       # Yeşil
+            4: (0, 255, 255),     # Cyan
+            5: (0, 0, 255),       # Mavi
+            6: (255, 0, 255),     # Magenta
+            7: (255, 255, 255),   # Beyaz
+            8: (128, 128, 128),   # Koyu Gri
+            9: (192, 192, 192),   # Açık Gri
+            256: (255, 255, 255), # ByLayer (Beyaz)
+        }
+        
+        return QColor(*aci_colors.get(color_index, (255, 255, 255)))
     
     def _on_layer_visibility_changed(self, item, column):
         if isinstance(item, LayerItem):
