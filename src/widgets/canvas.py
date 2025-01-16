@@ -1,9 +1,101 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QRubberBand, QApplication
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QRubberBand, QApplication,
+                           QMenu, QDialog, QFormLayout, QLineEdit, QDialogButtonBox,
+                           QLabel, QColorDialog)
 from PyQt6.QtCore import Qt, QPointF, QRectF, QPoint, QRect
-from PyQt6.QtGui import QPainter, QPen, QColor, QBrush
+from PyQt6.QtGui import QPainter, QPen, QColor, QBrush, QPainterPath
 import ezdxf
 from ezdxf.math import Vec2
 import math
+import numpy as np
+
+class EntityPropertiesDialog(QDialog):
+    def __init__(self, entity, parent=None):
+        super().__init__(parent)
+        self.entity = entity
+        self.setWindowTitle("Nesne Özellikleri")
+        self._init_ui()
+    
+    def _init_ui(self):
+        layout = QFormLayout(self)
+        
+        # Temel özellikler
+        self.type_label = QLabel(f"Tür: {self.entity.dxftype()}")
+        layout.addRow(self.type_label)
+        
+        # Katman
+        self.layer_edit = QLineEdit(self.entity.dxf.layer)
+        layout.addRow("Katman:", self.layer_edit)
+        
+        # Renk seçici
+        self.color_button = QPushButton("Renk Seç")
+        self.color_button.clicked.connect(self._select_color)
+        if hasattr(self.entity.dxf, 'color'):
+            current_color = self.entity.rgb or (0, 0, 0)
+            self.current_color = QColor(*current_color)
+            self._update_color_button()
+        layout.addRow("Renk:", self.color_button)
+        
+        # Entity tipine özel özellikler
+        self._add_specific_properties(layout)
+        
+        # Butonlar
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | 
+            QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+    
+    def _add_specific_properties(self, layout):
+        entity_type = self.entity.dxftype()
+        
+        if entity_type == 'LINE':
+            # Başlangıç noktası
+            start = self.entity.dxf.start
+            self.start_x = QLineEdit(str(start[0]))
+            self.start_y = QLineEdit(str(start[1]))
+            layout.addRow("Başlangıç X:", self.start_x)
+            layout.addRow("Başlangıç Y:", self.start_y)
+            
+            # Bitiş noktası
+            end = self.entity.dxf.end
+            self.end_x = QLineEdit(str(end[0]))
+            self.end_y = QLineEdit(str(end[1]))
+            layout.addRow("Bitiş X:", self.end_x)
+            layout.addRow("Bitiş Y:", self.end_y)
+            
+        elif entity_type in ('CIRCLE', 'ARC'):
+            # Merkez noktası
+            center = self.entity.dxf.center
+            self.center_x = QLineEdit(str(center[0]))
+            self.center_y = QLineEdit(str(center[1]))
+            layout.addRow("Merkez X:", self.center_x)
+            layout.addRow("Merkez Y:", self.center_y)
+            
+            # Yarıçap
+            self.radius = QLineEdit(str(self.entity.dxf.radius))
+            layout.addRow("Yarıçap:", self.radius)
+            
+            if entity_type == 'ARC':
+                # Başlangıç ve bitiş açıları
+                self.start_angle = QLineEdit(str(math.degrees(self.entity.dxf.start_angle)))
+                self.end_angle = QLineEdit(str(math.degrees(self.entity.dxf.end_angle)))
+                layout.addRow("Başlangıç Açısı:", self.start_angle)
+                layout.addRow("Bitiş Açısı:", self.end_angle)
+    
+    def _select_color(self):
+        color = QColorDialog.getColor(self.current_color, self)
+        if color.isValid():
+            self.current_color = color
+            self._update_color_button()
+    
+    def _update_color_button(self):
+        self.color_button.setStyleSheet(
+            f"background-color: {self.current_color.name()};"
+            f"color: {'white' if self.current_color.value() < 128 else 'black'};"
+        )
+        self.color_button.setText(self.current_color.name())
 
 class DXFCanvas(QWidget):
     def __init__(self):
@@ -24,6 +116,9 @@ class DXFCanvas(QWidget):
         self.selection_start = None
         self.highlight_color = QColor(0, 120, 215, 100)  # Yarı saydam mavi
         
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
+        
     def _init_ui(self):
         self.setMinimumSize(400, 300)
         layout = QVBoxLayout(self)
@@ -34,6 +129,9 @@ class DXFCanvas(QWidget):
         try:
             self.doc = ezdxf.readfile(filepath)
             self.entities = list(self.doc.modelspace())
+            # Debug için entity tiplerini yazdır
+            for entity in self.entities:
+                print(f"Yüklenen entity tipi: {entity.dxftype()}")
             self._calculate_bounds()
             self._center_view()
             self.update()
@@ -48,8 +146,8 @@ class DXFCanvas(QWidget):
         max_x = max_y = float('-inf')
         
         for entity in self.entities:
-            entity_type = entity.dxftype()
             points = []
+            entity_type = entity.dxftype()
             
             if entity_type == 'LINE':
                 points = [entity.dxf.start, entity.dxf.end]
@@ -71,13 +169,33 @@ class DXFCanvas(QWidget):
                 points = list(entity.get_points('xy'))
             elif entity_type == 'POLYLINE':
                 points = [vertex.dxf.location for vertex in entity.vertices]
+            elif entity_type == 'SPLINE':
+                # Spline kontrol noktalarını kullan
+                points = [cp for cp in entity.control_points]
+            elif entity_type == 'ELLIPSE':
+                center = entity.dxf.center
+                major_axis = entity.dxf.major_axis
+                ratio = entity.dxf.ratio
+                major_radius = math.sqrt(major_axis[0]**2 + major_axis[1]**2)
+                minor_radius = major_radius * ratio
+                points = [
+                    (center[0] - major_radius, center[1] - minor_radius),
+                    (center[0] + major_radius, center[1] + minor_radius)
+                ]
+            elif entity_type == 'TEXT':
+                pos = entity.dxf.insert
+                height = entity.dxf.height
+                points = [pos, (pos[0] + len(entity.dxf.text) * height, pos[1] + height)]
+            elif entity_type == 'POINT':
+                pos = entity.dxf.location
+                points = [pos]
             
             for point in points:
                 min_x = min(min_x, point[0])
                 max_x = max(max_x, point[0])
                 min_y = min(min_y, point[1])
                 max_y = max(max_y, point[1])
-                
+        
         self.bounds = (min_x, min_y, max_x, max_y)
     
     def _center_view(self):
@@ -94,7 +212,10 @@ class DXFCanvas(QWidget):
         # Ölçeklendirme faktörünü hesapla
         scale_x = width / dx if dx != 0 else 1
         scale_y = height / dy if dy != 0 else 1
-        self.scale = min(scale_x, scale_y) * 0.9  # %90 doluluk oranı
+        new_scale = min(scale_x, scale_y) * 0.9  # %90 doluluk oranı
+        
+        # Scale değerinin 0 olmamasını sağla
+        self.scale = max(new_scale, 0.0001)
         
         # Merkeze konumlandır
         self.pan_x = width/2 - (self.bounds[0] + dx/2) * self.scale
@@ -124,12 +245,10 @@ class DXFCanvas(QWidget):
         
         # Seçili entiteleri vurgula
         if entity in self.selected_entities:
-            # Vurgulama için kalın ve renkli kalem
             pen = QPen(self.highlight_color)
-            pen.setWidth(3)  # Daha kalın çizgi
+            pen.setWidth(3)
             painter.setPen(pen)
         else:
-            # Normal çizim için standart kalem
             color = self._get_entity_color(entity)
             pen = QPen(color)
             pen.setWidth(0)
@@ -139,68 +258,169 @@ class DXFCanvas(QWidget):
         
         # Entity tipine göre çizim
         if entity_type == 'LINE':
-            start = entity.dxf.start
-            end = entity.dxf.end
+            self._draw_line(painter, entity)
+        elif entity_type == 'CIRCLE':
+            self._draw_circle(painter, entity)
+        elif entity_type == 'ARC':
+            self._draw_arc(painter, entity)
+        elif entity_type in ('LWPOLYLINE', 'POLYLINE'):
+            self._draw_polyline(painter, entity)
+        elif entity_type == 'SPLINE':
+            self._draw_spline(painter, entity)
+        elif entity_type == 'ELLIPSE':
+            self._draw_ellipse(painter, entity)
+        elif entity_type == 'TEXT':
+            self._draw_text(painter, entity)
+        elif entity_type == 'POINT':
+            self._draw_point(painter, entity)
+    
+    def _draw_line(self, painter, entity):
+        start = entity.dxf.start
+        end = entity.dxf.end
+        painter.drawLine(
+            QPointF(start[0], start[1]),
+            QPointF(end[0], end[1])
+        )
+    
+    def _draw_circle(self, painter, entity):
+        center = entity.dxf.center
+        radius = entity.dxf.radius
+        if entity in self.selected_entities:
+            painter.setBrush(QBrush(self.highlight_color.lighter(150)))
+        painter.drawEllipse(
+            QPointF(center[0], center[1]),
+            radius, radius
+        )
+    
+    def _draw_arc(self, painter, entity):
+        center = entity.dxf.center
+        radius = entity.dxf.radius
+        start_angle = math.degrees(entity.dxf.start_angle)
+        end_angle = math.degrees(entity.dxf.end_angle)
+        
+        rect = QRectF(
+            center[0] - radius,
+            center[1] - radius,
+            radius * 2,
+            radius * 2
+        )
+        painter.drawArc(
+            rect,
+            int(-start_angle * 16),
+            int(-(end_angle - start_angle) * 16)
+        )
+    
+    def _draw_polyline(self, painter, entity):
+        if entity.dxftype() == 'LWPOLYLINE':
+            points = list(entity.get_points('xy'))
+        else:  # POLYLINE
+            points = [vertex.dxf.location for vertex in entity.vertices]
+        
+        if len(points) < 2:
+            return
+        
+        # Kapalı polyline için son noktayı ilk noktaya bağla
+        if hasattr(entity.dxf, 'closed') and entity.dxf.closed:
+            points.append(points[0])
+        
+        for i in range(len(points) - 1):
+            start = points[i]
+            end = points[i + 1]
             painter.drawLine(
                 QPointF(start[0], start[1]),
                 QPointF(end[0], end[1])
             )
+    
+    def _draw_spline(self, painter, entity):
+        try:
+            # Spline'ı daha hassas noktalarla örnekle
+            points = []
+            params = np.linspace(0, 1, 100)  # 100 nokta ile örnekleme
             
-        elif entity_type == 'CIRCLE':
-            center = entity.dxf.center
-            radius = entity.dxf.radius
-            if entity in self.selected_entities:
-                painter.setBrush(QBrush(self.highlight_color.lighter(150)))
-            painter.drawEllipse(
-                QPointF(center[0], center[1]),
-                radius, radius
-            )
+            # Spline'ın fit noktalarını al
+            if hasattr(entity, 'fit_points') and entity.fit_points:
+                # Fit noktaları varsa onları kullan
+                points = [point for point in entity.fit_points]
+            else:
+                # Kontrol noktalarını kullan
+                points = [point for point in entity.control_points]
             
-        elif entity_type == 'ARC':
-            center = entity.dxf.center
-            radius = entity.dxf.radius
-            start_angle = math.degrees(entity.dxf.start_angle)
-            end_angle = math.degrees(entity.dxf.end_angle)
-            
-            rect = QRectF(
-                center[0] - radius,
-                center[1] - radius,
-                radius * 2,
-                radius * 2
-            )
-            painter.drawArc(
-                rect,
-                int(-start_angle * 16),
-                int(-(end_angle - start_angle) * 16)
-            )
-            
-        elif entity_type == 'LWPOLYLINE':
-            # LWPOLYLINE için points özelliğini kullan
-            points = entity.get_points('xy')  # sadece x,y koordinatlarını al
             if len(points) < 2:
                 return
-                
-            for i in range(len(points) - 1):
-                start = points[i]
-                end = points[i + 1]
-                painter.drawLine(
-                    QPointF(start[0], start[1]),
-                    QPointF(end[0], end[1])
-                )
             
-        elif entity_type == 'POLYLINE':
-            # POLYLINE için vertices özelliğini kullan
-            vertices = [vertex.dxf.location for vertex in entity.vertices]
-            if len(vertices) < 2:
-                return
-                
-            for i in range(len(vertices) - 1):
-                start = vertices[i]
-                end = vertices[i + 1]
-                painter.drawLine(
-                    QPointF(start[0], start[1]),
-                    QPointF(end[0], end[1])
-                )
+            # Çizim yolu oluştur
+            path = QPainterPath()
+            path.moveTo(points[0][0], points[0][1])
+            
+            if len(points) == 2:
+                # Sadece iki nokta varsa düz çizgi çiz
+                path.lineTo(points[1][0], points[1][1])
+            else:
+                # Çoklu nokta varsa eğri çiz
+                for i in range(1, len(points) - 2):
+                    # Cubic bezier eğrisi kullan
+                    path.cubicTo(
+                        points[i][0], points[i][1],
+                        (points[i][0] + points[i+1][0]) / 2, (points[i][1] + points[i+1][1]) / 2,
+                        points[i+1][0], points[i+1][1]
+                    )
+                # Son noktaya bağlan
+                path.lineTo(points[-1][0], points[-1][1])
+            
+            painter.drawPath(path)
+            
+        except Exception as e:
+            print(f"Spline çizim hatası: {str(e)}")
+    
+    def _draw_ellipse(self, painter, entity):
+        center = entity.dxf.center
+        major_axis = entity.dxf.major_axis
+        ratio = entity.dxf.ratio
+        
+        # Elips parametrelerini hesapla
+        major_radius = math.sqrt(major_axis[0]**2 + major_axis[1]**2)
+        minor_radius = major_radius * ratio
+        
+        # Dönüş açısını hesapla
+        rotation = math.degrees(math.atan2(major_axis[1], major_axis[0]))
+        
+        painter.save()
+        painter.translate(center[0], center[1])
+        painter.rotate(rotation)
+        painter.drawEllipse(QPointF(0, 0), major_radius, minor_radius)
+        painter.restore()
+    
+    def _draw_text(self, painter, entity):
+        pos = entity.dxf.insert
+        text = entity.dxf.text
+        height = entity.dxf.height
+        
+        # Yazı tipi ayarları
+        font = painter.font()
+        font.setPointSizeF(height * self.scale)
+        painter.setFont(font)
+        
+        # Metin hizalama
+        flags = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom
+        
+        painter.save()
+        painter.translate(pos[0], pos[1])
+        if hasattr(entity.dxf, 'rotation'):
+            painter.rotate(-entity.dxf.rotation)
+        painter.scale(1, -1)  # Y ekseni tersine çevrildiği için metni düzelt
+        painter.drawText(QPointF(0, 0), text)
+        painter.restore()
+    
+    def _draw_point(self, painter, entity):
+        pos = entity.dxf.location
+        size = 5 / self.scale  # Sabit ekran boyutu için ölçekle
+        
+        painter.save()
+        painter.setPen(Qt.PenStyle.NoPen)
+        if entity in self.selected_entities:
+            painter.setBrush(self.highlight_color)
+        painter.drawEllipse(QPointF(pos[0], pos[1]), size, size)
+        painter.restore()
     
     def _get_entity_color(self, entity):
         try:
@@ -236,12 +456,15 @@ class DXFCanvas(QWidget):
         old_pos = event.position()
         old_scene_pos = self._screen_to_world(old_pos)
         
-        # Zoom faktörünü hesapla
+        # Zoom faktörünü hesapla ve minimum değeri kontrol et
         delta = event.angleDelta().y()
         if delta > 0:
-            self.scale *= 1.2
+            new_scale = self.scale * 1.2
         else:
-            self.scale /= 1.2
+            new_scale = self.scale / 1.2
+        
+        # Scale değerinin 0 olmamasını sağla
+        self.scale = max(new_scale, 0.0001)
         
         # Fare pozisyonunu koruyarak zoom
         new_scene_pos = self._screen_to_world(old_pos)
@@ -363,5 +586,75 @@ class DXFCanvas(QWidget):
     
     def clear_selection(self):
         """Tüm seçimleri temizle"""
+        self.selected_entities.clear()
+        self.update() 
+    
+    def _show_context_menu(self, position):
+        menu = QMenu(self)
+        
+        # Seçili nesne varsa
+        if self.selected_entities:
+            edit_action = menu.addAction("Özellikleri Düzenle")
+            edit_action.triggered.connect(self._edit_properties)
+            
+            delete_action = menu.addAction("Sil")
+            delete_action.triggered.connect(self._delete_selected)
+            
+            menu.addSeparator()
+        
+        # Genel menü öğeleri
+        clear_selection = menu.addAction("Seçimi Temizle")
+        clear_selection.triggered.connect(self.clear_selection)
+        
+        menu.exec(self.mapToGlobal(position))
+    
+    def _edit_properties(self):
+        # Şimdilik sadece tek nesne düzenleme
+        if len(self.selected_entities) == 1:
+            entity = next(iter(self.selected_entities))
+            dialog = EntityPropertiesDialog(entity, self)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                self._update_entity_properties(entity, dialog)
+                self.update()
+    
+    def _update_entity_properties(self, entity, dialog):
+        # Temel özellikleri güncelle
+        entity.dxf.layer = dialog.layer_edit.text()
+        entity.rgb = (dialog.current_color.red(),
+                     dialog.current_color.green(),
+                     dialog.current_color.blue())
+        
+        # Entity tipine özel özellikleri güncelle
+        entity_type = entity.dxftype()
+        
+        if entity_type == 'LINE':
+            entity.dxf.start = (float(dialog.start_x.text()),
+                              float(dialog.start_y.text()),
+                              0)
+            entity.dxf.end = (float(dialog.end_x.text()),
+                            float(dialog.end_y.text()),
+                            0)
+            
+        elif entity_type == 'CIRCLE':
+            entity.dxf.center = (float(dialog.center_x.text()),
+                               float(dialog.center_y.text()),
+                               0)
+            entity.dxf.radius = float(dialog.radius.text())
+            
+        elif entity_type == 'ARC':
+            entity.dxf.center = (float(dialog.center_x.text()),
+                               float(dialog.center_y.text()),
+                               0)
+            entity.dxf.radius = float(dialog.radius.text())
+            entity.dxf.start_angle = math.radians(float(dialog.start_angle.text()))
+            entity.dxf.end_angle = math.radians(float(dialog.end_angle.text()))
+    
+    def _delete_selected(self):
+        for entity in self.selected_entities:
+            self.entities.remove(entity)
+            # DXF dosyasından da kaldır
+            if self.doc and self.doc.modelspace():
+                self.doc.modelspace().delete_entity(entity)
+        
         self.selected_entities.clear()
         self.update() 
