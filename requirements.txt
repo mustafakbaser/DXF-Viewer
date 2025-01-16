@@ -1,0 +1,4 @@
+PyQt6>=6.4.0
+ezdxf>=1.0.0
+numpy>=1.21.0
+matplotlib>=3.4.0  # Renk işleme ve dönüşümler için 
