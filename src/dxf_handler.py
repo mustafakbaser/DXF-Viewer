@@ -18,8 +18,12 @@ class DXFHandler:
             self.doc = ezdxf.readfile(filepath)
             self.current_file = filepath
             
-            # Dosya bilgilerini topla
-            layer_count = len(self.doc.layers)
+            # Defpoints hariç katman sayısını hesapla
+            layer_count = sum(
+                1 for layer in self.doc.layers 
+                if layer.dxf.name.lower() != 'defpoints'
+            )
+            
             entity_counts = self._count_entities()
             
             return DXFInfo(
@@ -34,6 +38,8 @@ class DXFHandler:
         counts = {}
         if self.doc and self.doc.modelspace():
             for entity in self.doc.modelspace():
-                entity_type = entity.dxftype()
-                counts[entity_type] = counts.get(entity_type, 0) + 1
+                # Defpoints katmanındaki entityleri sayma
+                if entity.dxf.layer.lower() != 'defpoints':
+                    entity_type = entity.dxftype()
+                    counts[entity_type] = counts.get(entity_type, 0) + 1
         return counts 

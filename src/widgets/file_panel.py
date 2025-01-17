@@ -142,7 +142,7 @@ class FilePanel(QWidget):
             # Tüm katmanları gizle
             self._hide_all_layers()
             
-            # Önceki katmanı bul, göster ve kalın yap
+            # Önceki katmanı göster ve kalın yap
             prev_item = self.layer_tree.topLevelItem(current_index - 1)
             self.layer_tree.setCurrentItem(prev_item)
             prev_item.setCheckState(0, Qt.CheckState.Checked)
@@ -162,7 +162,7 @@ class FilePanel(QWidget):
             # Tüm katmanları gizle
             self._hide_all_layers()
             
-            # Sonraki katmanı bul, göster ve kalın yap
+            # Sonraki katmanı göster ve kalın yap
             next_item = self.layer_tree.topLevelItem(current_index + 1)
             self.layer_tree.setCurrentItem(next_item)
             next_item.setCheckState(0, Qt.CheckState.Checked)
@@ -187,10 +187,16 @@ class FilePanel(QWidget):
             self._update_button_states(False)
             return
             
-        for layer in self.dxf_handler.doc.layers:
+        # Defpoints hariç tüm katmanları al ve alfabetik sırala
+        layers = [
+            layer for layer in self.dxf_handler.doc.layers 
+            if layer.dxf.name.lower() != 'defpoints'
+        ]
+        layers.sort(key=lambda x: x.dxf.name.lower())
+        
+        for layer in layers:
             color = self._get_layer_color(layer)
             item = LayerItem(layer.dxf.name, color)
-            # Başlangıçta tüm katmanları seçili yap
             item.setCheckState(0, Qt.CheckState.Checked)
             self.layer_tree.addTopLevelItem(item)
         
@@ -244,12 +250,26 @@ class FilePanel(QWidget):
             self.layer_visibility_changed.emit(item.layer_name, is_visible)
     
     def _update_info_display(self, info):
+        # Defpoints hariç katman sayısını göster
+        actual_layer_count = sum(
+            1 for layer in self.dxf_handler.doc.layers 
+            if layer.dxf.name.lower() != 'defpoints'
+        )
+        
         text = f"Dosya: {info.filename}\n"
-        text += f"Katman Sayısı: {info.layer_count}\n\n"
+        text += f"Katman Sayısı: {actual_layer_count}\n\n"
         text += "Geometri Türleri:\n"
-        for entity_type, count in info.entity_counts.items():
+        
+        # Defpoints katmanındaki entityleri hariç tut
+        filtered_counts = {
+            entity_type: count 
+            for entity_type, count in info.entity_counts.items()
+        }
+        
+        for entity_type, count in filtered_counts.items():
             text += f"- {entity_type}: {count}\n"
-        self.info_display.setText(text) 
+        
+        self.info_display.setText(text)
     
     def _hide_all_layers(self):
         """Tüm katmanları gizle"""

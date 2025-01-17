@@ -180,8 +180,21 @@ class DXFCanvas(QWidget):
             elif entity_type == 'POLYLINE':
                 points = [vertex.dxf.location for vertex in entity.vertices]
             elif entity_type == 'SPLINE':
-                # Spline kontrol noktalarını kullan
-                points = [cp for cp in entity.control_points]
+                try:
+                    # Spline noktalarını al
+                    spline_points = entity.construction_tool().get_points(100)
+                    points = [(p.x, p.y) for p in spline_points]
+                    
+                    # Kontrol noktalarını da ekle
+                    points.extend(entity.control_points)
+                    
+                    # Fit noktaları varsa onları da ekle
+                    if hasattr(entity, 'fit_points') and entity.fit_points:
+                        points.extend(entity.fit_points)
+                        
+                except Exception as e:
+                    print(f"Spline sınırları hesaplama hatası: {str(e)}")
+                    points = []
             elif entity_type == 'ELLIPSE':
                 center = entity.dxf.center
                 major_axis = entity.dxf.major_axis
@@ -362,17 +375,12 @@ class DXFCanvas(QWidget):
     
     def _draw_spline(self, painter, entity):
         try:
-            # Spline'ı daha hassas noktalarla örnekle
+            # Spline noktalarını al
             points = []
-            params = np.linspace(0, 1, 100)  # 100 nokta ile örnekleme
             
-            # Spline'ın fit noktalarını al
-            if hasattr(entity, 'fit_points') and entity.fit_points:
-                # Fit noktaları varsa onları kullan
-                points = [point for point in entity.fit_points]
-            else:
-                # Kontrol noktalarını kullan
-                points = [point for point in entity.control_points]
+            # ezdxf'in spline hesaplama fonksiyonunu kullan
+            spline_points = entity.construction_tool().get_points(100)  # 100 nokta ile örnekleme
+            points = [(p.x, p.y) for p in spline_points]
             
             if len(points) < 2:
                 return
@@ -381,22 +389,34 @@ class DXFCanvas(QWidget):
             path = QPainterPath()
             path.moveTo(points[0][0], points[0][1])
             
-            if len(points) == 2:
-                # Sadece iki nokta varsa düz çizgi çiz
-                path.lineTo(points[1][0], points[1][1])
-            else:
-                # Çoklu nokta varsa eğri çiz
-                for i in range(1, len(points) - 2):
-                    # Cubic bezier eğrisi kullan
-                    path.cubicTo(
-                        points[i][0], points[i][1],
-                        (points[i][0] + points[i+1][0]) / 2, (points[i][1] + points[i+1][1]) / 2,
-                        points[i+1][0], points[i+1][1]
-                    )
-                # Son noktaya bağlan
-                path.lineTo(points[-1][0], points[-1][1])
+            # Noktaları birleştir
+            for point in points[1:]:
+                path.lineTo(point[0], point[1])
             
+            # Spline'ı çiz
             painter.drawPath(path)
+            
+            # Eğer seçili ise kontrol noktalarını göster
+            if entity in self.selected_entities:
+                control_points = entity.control_points
+                # Kontrol noktalarını küçük daireler olarak göster
+                point_size = 3 / self.scale
+                painter.setBrush(self.highlight_color)
+                for cp in control_points:
+                    painter.drawEllipse(QPointF(cp[0], cp[1]), point_size, point_size)
+                
+                # Kontrol noktalarını birleştiren çizgileri göster
+                pen = painter.pen()
+                pen.setStyle(Qt.PenStyle.DashLine)
+                pen.setWidth(0)
+                painter.setPen(pen)
+                for i in range(len(control_points) - 1):
+                    start = control_points[i]
+                    end = control_points[i + 1]
+                    painter.drawLine(
+                        QPointF(start[0], start[1]),
+                        QPointF(end[0], end[1])
+                    )
             
         except Exception as e:
             print(f"Spline çizim hatası: {str(e)}")
