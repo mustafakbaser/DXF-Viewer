@@ -116,6 +116,9 @@ class DXFCanvas(QWidget):
         self.selection_start = None
         self.highlight_color = QColor(0, 120, 215, 100)  # Yarı saydam mavi
         
+        # Dolgu modu için yeni değişken
+        self.fill_mode = False
+        
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
         
@@ -279,36 +282,121 @@ class DXFCanvas(QWidget):
             self._draw_entity(painter, entity)
     
     def _draw_entity(self, painter, entity):
-        # Katman kontrolü
         if entity.dxf.layer in self.hidden_layers:
             return
         
         entity_type = entity.dxftype()
         
+        # Renk ayarları
+        color = self._get_entity_color(entity)
+        pen = QPen(color)
+        pen.setWidth(0)
+        if hasattr(entity.dxf, 'linetype'):
+            self._apply_linetype(pen, entity.dxf.linetype)
+        
         # Seçili entiteleri vurgula
         if entity in self.selected_entities:
             pen = QPen(self.highlight_color)
             pen.setWidth(3)
-            painter.setPen(pen)
+        
+        painter.setPen(pen)
+        
+        # Dolgu ayarları
+        if self.fill_mode and entity.dxf.layer != "0":
+            brush_color = QColor(color)
+            brush_color.setAlpha(100)  # Yarı saydam dolgu
+            painter.setBrush(QBrush(brush_color))
         else:
-            color = self._get_entity_color(entity)
-            pen = QPen(color)
-            pen.setWidth(0)
-            if hasattr(entity.dxf, 'linetype'):
-                self._apply_linetype(pen, entity.dxf.linetype)
-            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
         
         # Entity tipine göre çizim
         if entity_type == 'LINE':
             self._draw_line(painter, entity)
         elif entity_type == 'CIRCLE':
-            self._draw_circle(painter, entity)
+            self._draw_circle_with_fill(painter, entity)
         elif entity_type == 'ARC':
             self._draw_arc(painter, entity)
-        elif entity_type in ('LWPOLYLINE', 'POLYLINE'):
-            self._draw_polyline(painter, entity)
+        elif entity_type == 'LWPOLYLINE':
+            self._draw_polyline_with_fill(painter, entity)
+        elif entity_type == 'POLYLINE':
+            self._draw_polyline_with_fill(painter, entity)
         elif entity_type == 'SPLINE':
-            self._draw_spline(painter, entity)
+            self._draw_spline_with_fill(painter, entity)
+        elif entity_type == 'ELLIPSE':
+            self._draw_ellipse(painter, entity)
+        elif entity_type == 'TEXT':
+            self._draw_text(painter, entity)
+        elif entity_type == 'POINT':
+            self._draw_point(painter, entity)
+    
+    def _draw_polyline_with_fill(self, painter, entity):
+        try:
+            # Entity tipine göre noktaları al
+            if entity.dxftype() == 'LWPOLYLINE':
+                points = list(entity.get_points('xy'))
+            else:  # POLYLINE
+                points = [(vertex.dxf.location[0], vertex.dxf.location[1]) 
+                         for vertex in entity.vertices]
+            
+            if len(points) < 2:
+                return
+            
+            # Çizim yolu oluştur
+            path = QPainterPath()
+            path.moveTo(points[0][0], points[0][1])
+            
+            for point in points[1:]:
+                path.lineTo(point[0], point[1])
+            
+            # Kapalı polyline için yolu kapat
+            if hasattr(entity.dxf, 'closed') and entity.dxf.closed:
+                path.closeSubpath()
+            
+            # Çiz
+            painter.drawPath(path)
+            
+        except Exception as e:
+            print(f"Polyline çizim hatası ({entity.dxftype()}): {str(e)}")
+    
+    def _draw_circle_with_fill(self, painter, entity):
+        center = entity.dxf.center
+        radius = entity.dxf.radius
+        painter.drawEllipse(
+            QPointF(center[0], center[1]),
+            radius, radius
+        )
+    
+    def _draw_spline_with_fill(self, painter, entity):
+        try:
+            spline_points = entity.construction_tool().get_points(100)
+            points = [(p.x, p.y) for p in spline_points]
+            
+            if len(points) < 2:
+                return
+            
+            path = QPainterPath()
+            path.moveTo(points[0][0], points[0][1])
+            
+            for point in points[1:]:
+                path.lineTo(point[0], point[1])
+            
+            # Spline kapalıysa yolu kapat
+            if entity.closed:
+                path.closeSubpath()
+            
+            painter.drawPath(path)
+            
+        except Exception as e:
+            print(f"Spline çizim hatası: {str(e)}")
+    
+    def _draw_regular_entity(self, painter, entity):
+        """Dolgu gerektirmeyen normal entityleri çiz"""
+        entity_type = entity.dxftype()
+        
+        if entity_type == 'LINE':
+            self._draw_line(painter, entity)
+        elif entity_type == 'ARC':
+            self._draw_arc(painter, entity)
         elif entity_type == 'ELLIPSE':
             self._draw_ellipse(painter, entity)
         elif entity_type == 'TEXT':
@@ -322,16 +410,6 @@ class DXFCanvas(QWidget):
         painter.drawLine(
             QPointF(start[0], start[1]),
             QPointF(end[0], end[1])
-        )
-    
-    def _draw_circle(self, painter, entity):
-        center = entity.dxf.center
-        radius = entity.dxf.radius
-        if entity in self.selected_entities:
-            painter.setBrush(QBrush(self.highlight_color.lighter(150)))
-        painter.drawEllipse(
-            QPointF(center[0], center[1]),
-            radius, radius
         )
     
     def _draw_arc(self, painter, entity):
@@ -351,75 +429,6 @@ class DXFCanvas(QWidget):
             int(-start_angle * 16),
             int(-(end_angle - start_angle) * 16)
         )
-    
-    def _draw_polyline(self, painter, entity):
-        if entity.dxftype() == 'LWPOLYLINE':
-            points = list(entity.get_points('xy'))
-        else:  # POLYLINE
-            points = [vertex.dxf.location for vertex in entity.vertices]
-        
-        if len(points) < 2:
-            return
-        
-        # Kapalı polyline için son noktayı ilk noktaya bağla
-        if hasattr(entity.dxf, 'closed') and entity.dxf.closed:
-            points.append(points[0])
-        
-        for i in range(len(points) - 1):
-            start = points[i]
-            end = points[i + 1]
-            painter.drawLine(
-                QPointF(start[0], start[1]),
-                QPointF(end[0], end[1])
-            )
-    
-    def _draw_spline(self, painter, entity):
-        try:
-            # Spline noktalarını al
-            points = []
-            
-            # ezdxf'in spline hesaplama fonksiyonunu kullan
-            spline_points = entity.construction_tool().get_points(100)  # 100 nokta ile örnekleme
-            points = [(p.x, p.y) for p in spline_points]
-            
-            if len(points) < 2:
-                return
-            
-            # Çizim yolu oluştur
-            path = QPainterPath()
-            path.moveTo(points[0][0], points[0][1])
-            
-            # Noktaları birleştir
-            for point in points[1:]:
-                path.lineTo(point[0], point[1])
-            
-            # Spline'ı çiz
-            painter.drawPath(path)
-            
-            # Eğer seçili ise kontrol noktalarını göster
-            if entity in self.selected_entities:
-                control_points = entity.control_points
-                # Kontrol noktalarını küçük daireler olarak göster
-                point_size = 3 / self.scale
-                painter.setBrush(self.highlight_color)
-                for cp in control_points:
-                    painter.drawEllipse(QPointF(cp[0], cp[1]), point_size, point_size)
-                
-                # Kontrol noktalarını birleştiren çizgileri göster
-                pen = painter.pen()
-                pen.setStyle(Qt.PenStyle.DashLine)
-                pen.setWidth(0)
-                painter.setPen(pen)
-                for i in range(len(control_points) - 1):
-                    start = control_points[i]
-                    end = control_points[i + 1]
-                    painter.drawLine(
-                        QPointF(start[0], start[1]),
-                        QPointF(end[0], end[1])
-                    )
-            
-        except Exception as e:
-            print(f"Spline çizim hatası: {str(e)}")
     
     def _draw_ellipse(self, painter, entity):
         center = entity.dxf.center
@@ -804,4 +813,9 @@ class DXFCanvas(QWidget):
                 self.doc.modelspace().delete_entity(entity)
         
         self.selected_entities.clear()
+        self.update() 
+    
+    def toggle_fill_mode(self):
+        """Dolgu modunu aç/kapat"""
+        self.fill_mode = not self.fill_mode
         self.update() 

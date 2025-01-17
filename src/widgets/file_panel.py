@@ -47,10 +47,6 @@ class FilePanel(QWidget):
         # Kontrol butonlarını layout'a ekle
         layout.addLayout(control_layout)
         
-        # Katman ağacı başlığı
-        layer_tree_label = QLabel("Katmanlar")
-        layout.addWidget(layer_tree_label)
-        
         # Katman ağacı
         self.layer_tree = QTreeWidget()
         self.layer_tree.setHeaderLabel("Katmanlar")
@@ -65,6 +61,13 @@ class FilePanel(QWidget):
         self.prev_layer_btn.setToolTip("Önceki katmanı göster")
         self.prev_layer_btn.clicked.connect(self._select_previous_layer)
         nav_layout.addWidget(self.prev_layer_btn)
+        
+        # Dolgu butonu
+        self.fill_btn = QPushButton("Dolgu")
+        self.fill_btn.setToolTip("Katmanları doldur/boşalt")
+        self.fill_btn.setCheckable(True)  # Toggle buton olarak ayarla
+        self.fill_btn.clicked.connect(self._toggle_fill)
+        nav_layout.addWidget(self.fill_btn)
         
         # Sonraki Katman butonu
         self.next_layer_btn = QPushButton("Sonraki →")
@@ -113,6 +116,7 @@ class FilePanel(QWidget):
         self.clear_all_btn.setEnabled(enabled)
         self.prev_layer_btn.setEnabled(enabled)
         self.next_layer_btn.setEnabled(enabled)
+        self.fill_btn.setEnabled(enabled)
     
     def _select_all_layers(self):
         """Tüm katmanları seçili duruma getir"""
@@ -289,3 +293,8 @@ class FilePanel(QWidget):
         font = item.font(0)
         font.setBold(False)
         item.setFont(0, font) 
+    
+    def _toggle_fill(self):
+        """Dolgu modunu aç/kapat"""
+        if hasattr(self, 'canvas'):
+            self.canvas.toggle_fill_mode() 

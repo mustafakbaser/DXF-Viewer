@@ -53,4 +53,7 @@ class DXFViewer(QMainWindow):
         self.file_panel.file_loaded.connect(self.canvas.load_dxf)
         self.file_panel.layer_visibility_changed.connect(
             self.canvas.set_layer_visibility
-        ) 
+        )
+        
+        # Canvas referansını FilePanel'e ekle
+        self.file_panel.canvas = self.canvas 
