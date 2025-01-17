@@ -334,9 +334,13 @@ class DXFCanvas(QWidget):
             # Entity tipine göre noktaları al
             if entity.dxftype() == 'LWPOLYLINE':
                 points = list(entity.get_points('xy'))
+                # LWPOLYLINE için kapalı olma durumunu kontrol et
+                is_closed = entity.dxf.flags & 1
             else:  # POLYLINE
                 points = [(vertex.dxf.location[0], vertex.dxf.location[1]) 
                          for vertex in entity.vertices]
+                # POLYLINE için kapalı olma durumunu kontrol et
+                is_closed = entity.is_closed
             
             if len(points) < 2:
                 return
@@ -349,7 +353,7 @@ class DXFCanvas(QWidget):
                 path.lineTo(point[0], point[1])
             
             # Kapalı polyline için yolu kapat
-            if hasattr(entity.dxf, 'closed') and entity.dxf.closed:
+            if is_closed:
                 path.closeSubpath()
             
             # Çiz
