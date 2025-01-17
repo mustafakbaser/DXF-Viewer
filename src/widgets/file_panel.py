@@ -231,22 +231,88 @@ class FilePanel(QWidget):
     
     def _aci_to_rgb(self, color_index):
         """AutoCAD Color Index (ACI) rengini RGB'ye çevirir"""
-        # AutoCAD standart renk tablosu
-        aci_colors = {
-            0: (255, 255, 255),   # ByBlock (Beyaz)
-            1: (255, 0, 0),       # Kırmızı
-            2: (255, 255, 0),     # Sarı
-            3: (0, 255, 0),       # Yeşil
-            4: (0, 255, 255),     # Cyan
-            5: (0, 0, 255),       # Mavi
-            6: (255, 0, 255),     # Magenta
-            7: (255, 255, 255),   # Beyaz
-            8: (128, 128, 128),   # Koyu Gri
-            9: (192, 192, 192),   # Açık Gri
-            256: (255, 255, 255), # ByLayer (Beyaz)
-        }
-        
-        return QColor(*aci_colors.get(color_index, (255, 255, 255)))
+        try:
+            # AutoCAD standart renk tablosu (genişletilmiş)
+            aci_colors = {
+                0: (0, 0, 0),       # ByBlock (Siyah)
+                1: (255, 0, 0),     # Kırmızı
+                2: (255, 255, 0),   # Sarı
+                3: (0, 255, 0),     # Yeşil
+                4: (0, 255, 255),   # Cyan
+                5: (0, 0, 255),     # Mavi
+                6: (255, 0, 255),   # Magenta
+                7: (0, 0, 0),       # Siyah/Beyaz
+                8: (128, 128, 128), # Koyu Gri
+                9: (192, 192, 192), # Açık Gri
+                10: (255, 0, 0),    # Kırmızı
+                11: (255, 127, 127),
+                12: (204, 0, 0),
+                13: (204, 102, 102),
+                14: (153, 0, 0),
+                15: (153, 76, 76),
+                20: (255, 255, 0),  # Sarı
+                21: (255, 255, 127),
+                22: (204, 204, 0),
+                23: (204, 204, 102),
+                24: (153, 153, 0),
+                25: (153, 153, 76),
+                30: (0, 255, 0),    # Yeşil
+                31: (127, 255, 127),
+                32: (0, 204, 0),
+                33: (102, 204, 102),
+                34: (0, 153, 0),
+                35: (76, 153, 76),
+                40: (0, 255, 255),  # Cyan
+                41: (127, 255, 255),
+                42: (0, 204, 204),
+                43: (102, 204, 204),
+                44: (0, 153, 153),
+                45: (76, 153, 153),
+                50: (0, 0, 255),    # Mavi
+                51: (127, 127, 255),
+                52: (0, 0, 204),
+                53: (102, 102, 204),
+                54: (0, 0, 153),
+                55: (76, 76, 153),
+                60: (255, 0, 255),  # Magenta
+                61: (255, 127, 255),
+                62: (204, 0, 204),
+                63: (204, 102, 204),
+                64: (153, 0, 153),
+                65: (153, 76, 153),
+                250: (238, 238, 238),
+                251: (217, 217, 217),
+                252: (196, 196, 196),
+                253: (175, 175, 175),
+                254: (154, 154, 154),
+                255: (133, 133, 133),
+                256: (0, 0, 0),     # ByLayer (Siyah)
+            }
+            
+            # Renk indeksi tabloda varsa onu kullan
+            if color_index in aci_colors:
+                return QColor(*aci_colors[color_index])
+            
+            # Renk indeksi tabloda yoksa, AutoCAD'in renk algoritmasını kullan
+            if 0 <= color_index <= 255:
+                # AutoCAD renk algoritması
+                base_index = (color_index - 1) // 10 * 10 + 1
+                if base_index in aci_colors:
+                    base_color = aci_colors[base_index]
+                    # Ton varyasyonu hesapla
+                    factor = 1.0 - (0.1 * ((color_index - base_index) % 10))
+                    return QColor(
+                        int(base_color[0] * factor),
+                        int(base_color[1] * factor),
+                        int(base_color[2] * factor)
+                    )
+            
+            # Hiçbir eşleşme bulunamazsa varsayılan renk
+            return QColor(0, 0, 0)  # Varsayılan siyah
+            
+        except Exception as e:
+            print(f"Renk dönüşüm hatası (ACI: {color_index}): {str(e)}")
+            return QColor(0, 0, 0)  # Hata durumunda siyah
     
     def _on_layer_visibility_changed(self, item, column):
         if isinstance(item, LayerItem):
