@@ -1,82 +1,207 @@
-# DXF Görüntüleyici
+# DXF Viewer
 
-Modern bir DXF dosya görüntüleyici ve düzenleyici uygulaması.
+A modern DXF file viewer and editor application with a clean, professional interface.
 
-## Teknolojiler
+![DXF Viewer](https://res.cloudinary.com/mustafakbaser/image/upload/v1741992333/DXF-Viewer-2_ffuzc4.png)
 
-- Python 3.x
+## Features
+
+### Viewing and Navigation
+- Load and display DXF files with accurate rendering
+- Zoom in/out using mouse wheel
+- Pan by dragging with left mouse button
+- Automatic centering and scaling of loaded drawings
+- High-quality antialiasing for smooth rendering
+
+### Layer Management
+- Show/hide individual layers
+- Select all or clear all layers with one click
+- Navigate between layers (previous/next)
+- Full support for layer colors (ACI and RGB)
+- Visual layer tree with color indicators
+
+### Selection and Editing
+- Create selection area with CTRL + left mouse button
+- Multiple entity selection (hold CTRL key)
+- Highlight selected entities
+- Edit entity properties (color, layer, geometry)
+- Delete selected entities
+
+### Supported DXF Entities
+- Lines (LINE)
+- Circles (CIRCLE)
+- Arcs (ARC)
+- Polylines (LWPOLYLINE)
+- Polygons (POLYLINE)
+- Splines (SPLINE)
+- Ellipses (ELLIPSE)
+- Points (POINT)
+- Text (TEXT)
+
+### Interface Features
+- Modern and user-friendly design
+- File information display
+- Layer tree view
+- Customizable toolbar
+- Fill mode for better visualization
+
+## Requirements
+
+- Python 3.7 or higher
 - PyQt6
 - ezdxf
 - numpy
-- matplotlib
 
-## Gereksinimler
+## Installation
+
+### Option 1: Using pip (Recommended)
+
+1. Clone the repository:
+```bash
+git clone https://github.com/mustafakbaser/DXF-Viewer.git
+cd DXF-Viewer
+```
+
+2. Create a virtual environment (optional but recommended):
+```bash
+python -m venv venv
+
+# On Windows
+venv\Scripts\activate
+
+# On macOS/Linux
+source venv/bin/activate
+```
+
+3. Install the required packages:
 ```bash
 pip install -r requirements.txt
 ```
 
-## Kullanım
+### Option 2: Manual Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/mustafakbaser/DXF-Viewer.git
+cd DXF-Viewer
+```
+
+2. Install the required packages manually:
+```bash
+pip install PyQt6 ezdxf numpy
+```
+
+## Usage
+
+### Running the Application
+
 ```bash
 python src/main.py
 ```
 
-## Özellikler
+### Basic Operations
 
-### Görüntüleme ve Gezinme
-- DXF dosyalarını yükleme ve görüntüleme
-- Yakınlaştırma/Uzaklaştırma (fare tekerleği)
-- Kaydırma (sol fare tuşu ile sürükleme)
-- Otomatik merkeze hizalama
-- Antialiasing desteği
+1. **Opening a DXF File**:
+   - Click the "Open File" button
+   - Select a DXF file from your computer
+   - The file will be loaded and displayed in the canvas
 
-### Katman Yönetimi
-- Katmanları gösterme/gizleme
-- Tüm katmanları seçme/temizleme
-- Katmanlar arası gezinme (önceki/sonraki)
-- Katman renk desteği (ACI ve RGB)
+2. **Navigation**:
+   - Zoom: Use the mouse wheel
+   - Pan: Click and drag with the left mouse button
+   - Reset view: Right-click and select "Reset View" from the context menu
 
-### Seçim ve Düzenleme
-- CTRL + Sol tık ile seçim alanı oluşturma
-- Çoklu nesne seçimi (CTRL tuşu ile)
-- Seçili nesneleri vurgulama
-- Nesne özelliklerini düzenleme
+3. **Layer Management**:
+   - Show/hide layers: Check/uncheck layers in the layer tree
+   - Select all layers: Click "Select All" button
+   - Hide all layers: Click "Clear All" button
+   - Navigate layers: Use "Prev" and "Next" buttons to cycle through layers
 
-### Desteklenen DXF Varlıkları
-- Çizgi (LINE)
-- Daire (CIRCLE)
-- Yay (ARC)
-- Çoklu çizgi (LWPOLYLINE)
-- Çokgen (POLYLINE)
-- Spline (SPLINE)
-- Elips (ELLIPSE)
-- Nokta (POINT)
-- Metin (TEXT)
+4. **Entity Selection**:
+   - Select single entity: Hold CTRL and click on an entity
+   - Select multiple entities: Hold CTRL and drag to create a selection rectangle
+   - Clear selection: Right-click and select "Clear Selection"
 
-### Arayüz Özellikleri
-- Modern ve kullanıcı dostu tasarım
-- Dosya bilgileri görüntüleme
-- Katman ağacı görünümü
-- Özelleştirilmiş araç çubuğu
+5. **Entity Editing**:
+   - Edit properties: Select an entity, right-click and select "Edit Properties"
+   - Delete entities: Select entities, right-click and select "Delete"
 
-## Proje Yapısı
+6. **Fill Mode**:
+   - Toggle fill mode: Click the "Fill" button to toggle fill mode for closed entities
+
+## Project Structure
+
 ```
-src/
-├── main.py           # Ana uygulama başlangıç noktası
-├── viewer.py         # Ana pencere ve uygulama mantığı
-├── dxf_handler.py    # DXF dosya işlemleri
-└── widgets/
-    ├── canvas.py     # Çizim alanı
-    └── file_panel.py # Dosya ve katman yönetimi paneli
-```	
+DXF-Viewer/
+├── src/
+│   ├── main.py           # Application entry point
+│   ├── viewer.py         # Main window and application logic
+│   ├── dxf_handler.py    # DXF file operations
+│   └── widgets/
+│       ├── canvas.py     # Drawing canvas
+│       └── file_panel.py # File and layer management panel
+├── requirements.txt      # Package dependencies
+└── README.md             # This file
+```
 
-## Yapılacaklar
+## Development
 
-- [ ] Daha fazla DXF varlık desteği (MTEXT, DIMENSION)
-- [ ] Ölçeklendirme göstergesi
-- [ ] Ölçüm araçları
-- [ ] Yazdırma desteği
-- [ ] Farklı formatlara dışa aktarma (PNG, PDF)
-- [ ] Çoklu dosya desteği (sekmeler)
-- [ ] Geri alma/yineleme işlemleri
-- [ ] Performans optimizasyonları
+### Building from Source
+
+1. Clone the repository:
+```bash
+git clone https://github.com/mustafakbaser/DXF-Viewer.git
+cd DXF-Viewer
+```
+
+2. Create a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install development dependencies:
+```bash
+pip install -r requirements-dev.txt  # If you have a separate dev requirements file
+```
+
+4. Run the application:
+```bash
+python src/main.py
+```
+
+### Creating an Executable
+
+You can create a standalone executable using PyInstaller:
+
+```bash
+pip install pyinstaller
+pyinstaller --onefile --windowed src/main.py
+```
+
+The executable will be created in the `dist` directory.
+
+## Future Enhancements
+
+- [ ] Support for more DXF entities (MTEXT, DIMENSION)
+- [ ] Scale indicator
+- [ ] Measurement tools
+- [ ] Printing support
+- [ ] Export to different formats (PNG, PDF)
+- [ ] Multi-file support (tabs)
+- [ ] Undo/redo operations
+- [ ] Performance optimizations for large files
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- [ezdxf](https://ezdxf.readthedocs.io/) for DXF file handling
+- [PyQt6](https://www.riverbankcomputing.com/software/pyqt/) for the GUI framework
 

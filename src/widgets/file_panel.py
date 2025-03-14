@@ -23,95 +23,181 @@ class FilePanel(QWidget):
     
     def _init_ui(self):
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
         
-        # Dosya seçme butonu
-        self.select_btn = QPushButton("Dosya Seç")
+        # Set maximum width for the panel
+        self.setMaximumWidth(300)
+        
+        # File selection button
+        self.select_btn = QPushButton("Open File")
+        self.select_btn.setIcon(QIcon.fromTheme("document-open"))
         self.select_btn.clicked.connect(self._select_file)
+        self.select_btn.setFixedHeight(32)
         layout.addWidget(self.select_btn)
         
-        # Katman kontrol butonları için horizontal layout
+        # Layer control buttons horizontal layout
         control_layout = QHBoxLayout()
+        control_layout.setSpacing(4)
         
-        # Tümünü Seç butonu
-        self.select_all_btn = QPushButton("Tümünü Seç")
-        self.select_all_btn.setToolTip("Tüm katmanları görünür yap")
+        # Select All button
+        self.select_all_btn = QPushButton("Select All")
+        self.select_all_btn.setIcon(QIcon.fromTheme("select-all"))
+        self.select_all_btn.setToolTip("Show all layers")
         self.select_all_btn.clicked.connect(self._select_all_layers)
+        self.select_all_btn.setFixedWidth(140)
+        self.select_all_btn.setFixedHeight(32)
         control_layout.addWidget(self.select_all_btn)
         
-        # Temizle butonu
-        self.clear_all_btn = QPushButton("Temizle")
-        self.clear_all_btn.setToolTip("Tüm katmanları gizle")
+        # Clear All button
+        self.clear_all_btn = QPushButton("Clear All")
+        self.clear_all_btn.setIcon(QIcon.fromTheme("edit-clear"))
+        self.clear_all_btn.setToolTip("Hide all layers")
         self.clear_all_btn.clicked.connect(self._clear_all_layers)
+        self.clear_all_btn.setFixedWidth(140)
+        self.clear_all_btn.setFixedHeight(32)
         control_layout.addWidget(self.clear_all_btn)
         
-        # Kontrol butonlarını layout'a ekle
+        # Add control buttons to layout
         layout.addLayout(control_layout)
         
-        # Katman ağacı
+        # Layer tree
         self.layer_tree = QTreeWidget()
-        self.layer_tree.setHeaderLabel("Katmanlar")
+        self.layer_tree.setHeaderLabel("Layers")
+        self.layer_tree.setAnimated(True)
         self.layer_tree.itemChanged.connect(self._on_layer_visibility_changed)
+        self.layer_tree.setMinimumHeight(200)
         layout.addWidget(self.layer_tree)
         
-        # Gezinme butonları için horizontal layout
+        # Navigation buttons horizontal layout
         nav_layout = QHBoxLayout()
+        nav_layout.setSpacing(10)  # Increase spacing between buttons
         
-        # Önceki Katman butonu
-        self.prev_layer_btn = QPushButton("← Önceki")
-        self.prev_layer_btn.setToolTip("Önceki katmanı göster")
+        # Add stretch to push buttons to center
+        nav_layout.addStretch(1)
+        
+        # Previous Layer button
+        self.prev_layer_btn = QPushButton("Prev")
+        self.prev_layer_btn.setIcon(QIcon.fromTheme("go-previous"))
+        self.prev_layer_btn.setToolTip("Show previous layer")
         self.prev_layer_btn.clicked.connect(self._select_previous_layer)
+        self.prev_layer_btn.setFixedWidth(75)
+        self.prev_layer_btn.setFixedHeight(32)
         nav_layout.addWidget(self.prev_layer_btn)
         
-        # Dolgu butonu
-        self.fill_btn = QPushButton("Dolgu")
-        self.fill_btn.setToolTip("Katmanları doldur/boşalt")
-        self.fill_btn.setCheckable(True)  # Toggle buton olarak ayarla
+        # Fill button
+        self.fill_btn = QPushButton("Fill")
+        self.fill_btn.setIcon(QIcon.fromTheme("fill-color"))
+        self.fill_btn.setToolTip("Toggle layer fill mode")
+        self.fill_btn.setCheckable(True)
         self.fill_btn.clicked.connect(self._toggle_fill)
+        self.fill_btn.setFixedWidth(75)
+        self.fill_btn.setFixedHeight(32)
         nav_layout.addWidget(self.fill_btn)
         
-        # Sonraki Katman butonu
-        self.next_layer_btn = QPushButton("Sonraki →")
-        self.next_layer_btn.setToolTip("Sonraki katmanı göster")
+        # Next Layer button
+        self.next_layer_btn = QPushButton("Next")
+        self.next_layer_btn.setIcon(QIcon.fromTheme("go-next"))
+        self.next_layer_btn.setToolTip("Show next layer")
         self.next_layer_btn.clicked.connect(self._select_next_layer)
+        self.next_layer_btn.setFixedWidth(75)
+        self.next_layer_btn.setFixedHeight(32)
         nav_layout.addWidget(self.next_layer_btn)
         
-        # Gezinme butonlarını layout'a ekle
+        # Add stretch to push buttons to center
+        nav_layout.addStretch(1)
+        
+        # Add navigation buttons to layout
         layout.addLayout(nav_layout)
         
-        # Dosya bilgileri
+        # File information
         self.info_display = QTextEdit()
         self.info_display.setReadOnly(True)
+        self.info_display.setMinimumHeight(120)
+        self.info_display.setMaximumHeight(150)
+        self.info_display.setStyleSheet("""
+            QTextEdit {
+                font-family: 'Consolas', monospace;
+                font-size: 11px;
+                line-height: 1.4;
+                padding: 8px;
+            }
+        """)
         layout.addWidget(self.info_display)
         
-        # Başlangıçta butonları devre dışı bırak
+        # Disable buttons initially
         self._update_button_states(False)
         
-        # Buton stilleri için ortak stil tanımı
+        # Common button style
         button_style = """
             QPushButton {
-                padding: 5px 15px;
-                background: #f0f0f0;
-                border: 1px solid #ccc;
+                padding: 6px 10px;
+                background: #3498db;
+                color: white;
+                border: none;
                 border-radius: 4px;
                 min-width: 80px;
+                font-weight: bold;
+                font-size: 11px;
             }
             QPushButton:hover {
-                background: #e0e0e0;
+                background: #2980b9;
+            }
+            QPushButton:pressed {
+                background: #2472a4;
             }
             QPushButton:disabled {
-                color: #999;
+                background: #bdc3c7;
+            }
+            QPushButton:checked {
+                background: #27ae60;
+            }
+            QPushButton:checked:hover {
+                background: #219a52;
             }
         """
         
-        # Stilleri uygula
+        # Navigation button style (more compact)
+        nav_button_style = """
+            QPushButton {
+                padding: 4px 8px;
+                background: #3498db;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                min-width: 70px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background: #2980b9;
+            }
+            QPushButton:pressed {
+                background: #2472a4;
+            }
+            QPushButton:disabled {
+                background: #bdc3c7;
+            }
+            QPushButton:checked {
+                background: #27ae60;
+            }
+            QPushButton:checked:hover {
+                background: #219a52;
+            }
+        """
+        
+        # Apply styles
         self.select_btn.setStyleSheet(button_style)
         self.select_all_btn.setStyleSheet(button_style)
         self.clear_all_btn.setStyleSheet(button_style)
-        self.prev_layer_btn.setStyleSheet(button_style)
-        self.next_layer_btn.setStyleSheet(button_style)
+        
+        # Apply navigation button style
+        self.prev_layer_btn.setStyleSheet(nav_button_style)
+        self.next_layer_btn.setStyleSheet(nav_button_style)
+        self.fill_btn.setStyleSheet(nav_button_style)
     
     def _update_button_states(self, enabled=True):
-        """Butonların aktif/pasif durumunu güncelle"""
+        """Update button active/inactive states"""
         self.select_all_btn.setEnabled(enabled)
         self.clear_all_btn.setEnabled(enabled)
         self.prev_layer_btn.setEnabled(enabled)
@@ -119,54 +205,54 @@ class FilePanel(QWidget):
         self.fill_btn.setEnabled(enabled)
     
     def _select_all_layers(self):
-        """Tüm katmanları seçili duruma getir"""
+        """Select all layers"""
         root = self.layer_tree.invisibleRootItem()
         for i in range(root.childCount()):
             item = root.child(i)
             item.setCheckState(0, Qt.CheckState.Checked)
     
     def _clear_all_layers(self):
-        """Tüm katmanların seçimini kaldır"""
+        """Clear all layer selections"""
         root = self.layer_tree.invisibleRootItem()
         for i in range(root.childCount()):
             item = root.child(i)
             item.setCheckState(0, Qt.CheckState.Unchecked)
     
     def _select_previous_layer(self):
-        """Önceki katmanı göster, diğerlerini gizle"""
+        """Show previous layer, hide others"""
         current_item = self.layer_tree.currentItem()
         if not current_item:
             return
             
         current_index = self.layer_tree.indexOfTopLevelItem(current_item)
         if current_index > 0:
-            # Mevcut katmanın yazı tipini normale çevir
+            # Set current layer font to normal
             self._set_normal_layer(current_item)
             
-            # Tüm katmanları gizle
+            # Hide all layers
             self._hide_all_layers()
             
-            # Önceki katmanı göster ve kalın yap
+            # Show previous layer and make bold
             prev_item = self.layer_tree.topLevelItem(current_index - 1)
             self.layer_tree.setCurrentItem(prev_item)
             prev_item.setCheckState(0, Qt.CheckState.Checked)
             self._set_bold_layer(prev_item)
     
     def _select_next_layer(self):
-        """Sonraki katmanı göster, diğerlerini gizle"""
+        """Show next layer, hide others"""
         current_item = self.layer_tree.currentItem()
         if not current_item:
             return
             
         current_index = self.layer_tree.indexOfTopLevelItem(current_item)
         if current_index < self.layer_tree.topLevelItemCount() - 1:
-            # Mevcut katmanın yazı tipini normale çevir
+            # Set current layer font to normal
             self._set_normal_layer(current_item)
             
-            # Tüm katmanları gizle
+            # Hide all layers
             self._hide_all_layers()
             
-            # Sonraki katmanı göster ve kalın yap
+            # Show next layer and make bold
             next_item = self.layer_tree.topLevelItem(current_index + 1)
             self.layer_tree.setCurrentItem(next_item)
             next_item.setCheckState(0, Qt.CheckState.Checked)
@@ -174,7 +260,7 @@ class FilePanel(QWidget):
     
     def _select_file(self):
         filepath, _ = QFileDialog.getOpenFileName(
-            self, "DXF Dosyası Seç", "", "DXF Dosyaları (*.dxf)"
+            self, "Select DXF File", "", "DXF Files (*.dxf)"
         )
         if filepath:
             try:
@@ -183,7 +269,7 @@ class FilePanel(QWidget):
                 self._update_layer_tree()
                 self.file_loaded.emit(filepath)
             except Exception as e:
-                self.info_display.setText(f"Hata: {str(e)}")
+                self.info_display.setText(f"Error: {str(e)}")
     
     def _update_layer_tree(self):
         self.layer_tree.clear()
@@ -191,7 +277,7 @@ class FilePanel(QWidget):
             self._update_button_states(False)
             return
             
-        # Defpoints hariç tüm katmanları al ve alfabetik sırala
+        # Get all layers except Defpoints and sort alphabetically
         layers = [
             layer for layer in self.dxf_handler.doc.layers 
             if layer.dxf.name.lower() != 'defpoints'
@@ -204,10 +290,10 @@ class FilePanel(QWidget):
             item.setCheckState(0, Qt.CheckState.Checked)
             self.layer_tree.addTopLevelItem(item)
         
-        # Katmanlar yüklendiğinde butonları aktif et
+        # Enable buttons when layers are loaded
         self._update_button_states(True)
         
-        # İlk katmanı seçili yap ve kalın göster
+        # Select first layer and make it bold
         if self.layer_tree.topLevelItemCount() > 0:
             first_item = self.layer_tree.topLevelItem(0)
             self.layer_tree.setCurrentItem(first_item)
@@ -215,48 +301,48 @@ class FilePanel(QWidget):
     
     def _get_layer_color(self, layer):
         try:
-            # Önce RGB değerini kontrol et
+            # First check RGB value
             if layer.rgb is not None:
                 return QColor(*layer.rgb)
             
-            # ACI rengi kontrol et
+            # Check ACI color
             if hasattr(layer.dxf, 'color'):
                 color_index = layer.dxf.color
                 if color_index >= 0:
                     return self._aci_to_rgb(color_index)
         except Exception as e:
-            print(f"Katman rengi dönüşüm hatası: {str(e)}")
+            print(f"Layer color conversion error: {str(e)}")
         
-        return QColor(255, 255, 255)  # Varsayılan beyaz
+        return QColor(255, 255, 255)  # Default white
     
     def _aci_to_rgb(self, color_index):
-        """AutoCAD Color Index (ACI) rengini RGB'ye çevirir"""
+        """Convert AutoCAD Color Index (ACI) to RGB"""
         try:
-            # AutoCAD standart renk tablosu (genişletilmiş)
+            # AutoCAD standard color table (extended)
             aci_colors = {
-                0: (0, 0, 0),       # ByBlock (Siyah)
-                1: (255, 0, 0),     # Kırmızı
-                2: (255, 255, 0),   # Sarı
-                3: (0, 255, 0),     # Yeşil
+                0: (0, 0, 0),       # ByBlock (Black)
+                1: (255, 0, 0),     # Red
+                2: (255, 255, 0),   # Yellow
+                3: (0, 255, 0),     # Green
                 4: (0, 255, 255),   # Cyan
-                5: (0, 0, 255),     # Mavi
+                5: (0, 0, 255),     # Blue
                 6: (255, 0, 255),   # Magenta
-                7: (0, 0, 0),       # Siyah/Beyaz
-                8: (128, 128, 128), # Koyu Gri
-                9: (192, 192, 192), # Açık Gri
-                10: (255, 0, 0),    # Kırmızı
+                7: (0, 0, 0),       # Black/White
+                8: (128, 128, 128), # Dark Gray
+                9: (192, 192, 192), # Light Gray
+                10: (255, 0, 0),    # Red
                 11: (255, 127, 127),
                 12: (204, 0, 0),
                 13: (204, 102, 102),
                 14: (153, 0, 0),
                 15: (153, 76, 76),
-                20: (255, 255, 0),  # Sarı
+                20: (255, 255, 0),  # Yellow
                 21: (255, 255, 127),
                 22: (204, 204, 0),
                 23: (204, 204, 102),
                 24: (153, 153, 0),
                 25: (153, 153, 76),
-                30: (0, 255, 0),    # Yeşil
+                30: (0, 255, 0),    # Green
                 31: (127, 255, 127),
                 32: (0, 204, 0),
                 33: (102, 204, 102),
@@ -268,7 +354,7 @@ class FilePanel(QWidget):
                 43: (102, 204, 204),
                 44: (0, 153, 153),
                 45: (76, 153, 153),
-                50: (0, 0, 255),    # Mavi
+                50: (0, 0, 255),    # Blue
                 51: (127, 127, 255),
                 52: (0, 0, 204),
                 53: (102, 102, 204),
@@ -286,20 +372,20 @@ class FilePanel(QWidget):
                 253: (175, 175, 175),
                 254: (154, 154, 154),
                 255: (133, 133, 133),
-                256: (0, 0, 0),     # ByLayer (Siyah)
+                256: (0, 0, 0),     # ByLayer (Black)
             }
             
-            # Renk indeksi tabloda varsa onu kullan
+            # Use color from table if index exists
             if color_index in aci_colors:
                 return QColor(*aci_colors[color_index])
             
-            # Renk indeksi tabloda yoksa, AutoCAD'in renk algoritmasını kullan
+            # Use AutoCAD's color algorithm if index not in table
             if 0 <= color_index <= 255:
-                # AutoCAD renk algoritması
+                # AutoCAD color algorithm
                 base_index = (color_index - 1) // 10 * 10 + 1
                 if base_index in aci_colors:
                     base_color = aci_colors[base_index]
-                    # Ton varyasyonu hesapla
+                    # Calculate tone variation
                     factor = 1.0 - (0.1 * ((color_index - base_index) % 10))
                     return QColor(
                         int(base_color[0] * factor),
@@ -307,12 +393,12 @@ class FilePanel(QWidget):
                         int(base_color[2] * factor)
                     )
             
-            # Hiçbir eşleşme bulunamazsa varsayılan renk
-            return QColor(0, 0, 0)  # Varsayılan siyah
+            # Default color if no match found
+            return QColor(0, 0, 0)  # Default black
             
         except Exception as e:
-            print(f"Renk dönüşüm hatası (ACI: {color_index}): {str(e)}")
-            return QColor(0, 0, 0)  # Hata durumunda siyah
+            print(f"Color conversion error (ACI: {color_index}): {str(e)}")
+            return QColor(0, 0, 0)  # Black in case of error
     
     def _on_layer_visibility_changed(self, item, column):
         if isinstance(item, LayerItem):
@@ -320,17 +406,17 @@ class FilePanel(QWidget):
             self.layer_visibility_changed.emit(item.layer_name, is_visible)
     
     def _update_info_display(self, info):
-        # Defpoints hariç katman sayısını göster
+        # Show layer count excluding Defpoints
         actual_layer_count = sum(
             1 for layer in self.dxf_handler.doc.layers 
             if layer.dxf.name.lower() != 'defpoints'
         )
         
-        text = f"Dosya: {info.filename}\n"
-        text += f"Katman Sayısı: {actual_layer_count}\n\n"
-        text += "Geometri Türleri:\n"
+        text = f"File: {info.filename}\n"
+        text += f"Layer Count: {actual_layer_count}\n\n"
+        text += "Geometry Types:\n"
         
-        # Defpoints katmanındaki entityleri hariç tut
+        # Exclude entities in Defpoints layer
         filtered_counts = {
             entity_type: count 
             for entity_type, count in info.entity_counts.items()
@@ -342,25 +428,25 @@ class FilePanel(QWidget):
         self.info_display.setText(text)
     
     def _hide_all_layers(self):
-        """Tüm katmanları gizle"""
+        """Hide all layers"""
         root = self.layer_tree.invisibleRootItem()
         for i in range(root.childCount()):
             item = root.child(i)
             item.setCheckState(0, Qt.CheckState.Unchecked) 
     
     def _set_bold_layer(self, item):
-        """Katman yazı tipini kalın yap (Mevcut katmanı göster)"""
+        """Make layer font bold (Show current layer)"""
         font = item.font(0)
         font.setBold(True)
         item.setFont(0, font)
     
     def _set_normal_layer(self, item):
-        """Katman yazı tipini normale çevir"""
+        """Set layer font to normal"""
         font = item.font(0)
         font.setBold(False)
         item.setFont(0, font) 
     
     def _toggle_fill(self):
-        """Dolgu modunu aç/kapat"""
+        """Toggle fill mode on/off"""
         if hasattr(self, 'canvas'):
             self.canvas.toggle_fill_mode() 

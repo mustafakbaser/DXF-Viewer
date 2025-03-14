@@ -8,7 +8,7 @@ dist/
 build/
 *.egg-info/
 gcode/
-DXF/
+
 
 # Virtual environments
 venv/
