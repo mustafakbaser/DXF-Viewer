@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QPushButton,
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QColor, QIcon, QAction, QFont
 from dxf_handler import DXFHandler
+from translations import Translations
 
 class LayerItem(QTreeWidgetItem):
     def __init__(self, layer_name, color):
@@ -16,9 +17,10 @@ class FilePanel(QWidget):
     file_loaded = pyqtSignal(str)
     layer_visibility_changed = pyqtSignal(str, bool)  # layer_name, is_visible
     
-    def __init__(self):
+    def __init__(self, language=Translations.DEFAULT_LANGUAGE):
         super().__init__()
         self.dxf_handler = DXFHandler()
+        self.current_language = language
         self._init_ui()
     
     def _init_ui(self):
@@ -30,10 +32,11 @@ class FilePanel(QWidget):
         self.setMaximumWidth(300)
         
         # File selection button
-        self.select_btn = QPushButton("Open File")
+        self.select_btn = QPushButton(self._tr("open_file"))
         self.select_btn.setIcon(QIcon.fromTheme("document-open"))
         self.select_btn.clicked.connect(self._select_file)
         self.select_btn.setFixedHeight(32)
+        self.select_btn.setToolTip(self._tr("tooltip_open_file"))
         layout.addWidget(self.select_btn)
         
         # Layer control buttons horizontal layout
@@ -41,18 +44,18 @@ class FilePanel(QWidget):
         control_layout.setSpacing(4)
         
         # Select All button
-        self.select_all_btn = QPushButton("Select All")
+        self.select_all_btn = QPushButton(self._tr("select_all"))
         self.select_all_btn.setIcon(QIcon.fromTheme("select-all"))
-        self.select_all_btn.setToolTip("Show all layers")
+        self.select_all_btn.setToolTip(self._tr("tooltip_select_all"))
         self.select_all_btn.clicked.connect(self._select_all_layers)
         self.select_all_btn.setFixedWidth(140)
         self.select_all_btn.setFixedHeight(32)
         control_layout.addWidget(self.select_all_btn)
         
         # Clear All button
-        self.clear_all_btn = QPushButton("Clear All")
+        self.clear_all_btn = QPushButton(self._tr("clear_all"))
         self.clear_all_btn.setIcon(QIcon.fromTheme("edit-clear"))
-        self.clear_all_btn.setToolTip("Hide all layers")
+        self.clear_all_btn.setToolTip(self._tr("tooltip_clear_all"))
         self.clear_all_btn.clicked.connect(self._clear_all_layers)
         self.clear_all_btn.setFixedWidth(140)
         self.clear_all_btn.setFixedHeight(32)
@@ -63,7 +66,7 @@ class FilePanel(QWidget):
         
         # Layer tree
         self.layer_tree = QTreeWidget()
-        self.layer_tree.setHeaderLabel("Layers")
+        self.layer_tree.setHeaderLabel(self._tr("layers"))
         self.layer_tree.setAnimated(True)
         self.layer_tree.itemChanged.connect(self._on_layer_visibility_changed)
         self.layer_tree.setMinimumHeight(200)
@@ -77,18 +80,18 @@ class FilePanel(QWidget):
         nav_layout.addStretch(1)
         
         # Previous Layer button
-        self.prev_layer_btn = QPushButton("Prev")
+        self.prev_layer_btn = QPushButton(self._tr("prev"))
         self.prev_layer_btn.setIcon(QIcon.fromTheme("go-previous"))
-        self.prev_layer_btn.setToolTip("Show previous layer")
+        self.prev_layer_btn.setToolTip(self._tr("tooltip_prev"))
         self.prev_layer_btn.clicked.connect(self._select_previous_layer)
         self.prev_layer_btn.setFixedWidth(75)
         self.prev_layer_btn.setFixedHeight(32)
         nav_layout.addWidget(self.prev_layer_btn)
         
         # Fill button
-        self.fill_btn = QPushButton("Fill")
+        self.fill_btn = QPushButton(self._tr("fill"))
         self.fill_btn.setIcon(QIcon.fromTheme("fill-color"))
-        self.fill_btn.setToolTip("Toggle layer fill mode")
+        self.fill_btn.setToolTip(self._tr("tooltip_fill"))
         self.fill_btn.setCheckable(True)
         self.fill_btn.clicked.connect(self._toggle_fill)
         self.fill_btn.setFixedWidth(75)
@@ -96,9 +99,9 @@ class FilePanel(QWidget):
         nav_layout.addWidget(self.fill_btn)
         
         # Next Layer button
-        self.next_layer_btn = QPushButton("Next")
+        self.next_layer_btn = QPushButton(self._tr("next"))
         self.next_layer_btn.setIcon(QIcon.fromTheme("go-next"))
-        self.next_layer_btn.setToolTip("Show next layer")
+        self.next_layer_btn.setToolTip(self._tr("tooltip_next"))
         self.next_layer_btn.clicked.connect(self._select_next_layer)
         self.next_layer_btn.setFixedWidth(75)
         self.next_layer_btn.setFixedHeight(32)
@@ -196,6 +199,35 @@ class FilePanel(QWidget):
         self.next_layer_btn.setStyleSheet(nav_button_style)
         self.fill_btn.setStyleSheet(nav_button_style)
     
+    def _tr(self, key):
+        """Translate text using current language"""
+        return Translations.get(key, self.current_language)
+    
+    def update_language(self, language):
+        """Update UI language"""
+        self.current_language = language
+        
+        # Update button texts
+        self.select_btn.setText(self._tr("open_file"))
+        self.select_btn.setToolTip(self._tr("tooltip_open_file"))
+        self.select_all_btn.setText(self._tr("select_all"))
+        self.select_all_btn.setToolTip(self._tr("tooltip_select_all"))
+        self.clear_all_btn.setText(self._tr("clear_all"))
+        self.clear_all_btn.setToolTip(self._tr("tooltip_clear_all"))
+        self.prev_layer_btn.setText(self._tr("prev"))
+        self.prev_layer_btn.setToolTip(self._tr("tooltip_prev"))
+        self.fill_btn.setText(self._tr("fill"))
+        self.fill_btn.setToolTip(self._tr("tooltip_fill"))
+        self.next_layer_btn.setText(self._tr("next"))
+        self.next_layer_btn.setToolTip(self._tr("tooltip_next"))
+        
+        # Update layer tree header
+        self.layer_tree.setHeaderLabel(self._tr("layers"))
+        
+        # Update info display if there's content
+        if self.dxf_handler.doc:
+            self._update_info_display_with_current_language()
+    
     def _update_button_states(self, enabled=True):
         """Update button active/inactive states"""
         self.select_all_btn.setEnabled(enabled)
@@ -260,7 +292,7 @@ class FilePanel(QWidget):
     
     def _select_file(self):
         filepath, _ = QFileDialog.getOpenFileName(
-            self, "Select DXF File", "", "DXF Files (*.dxf)"
+            self, self._tr("select_dxf_file"), "", self._tr("dxf_files")
         )
         if filepath:
             try:
@@ -269,7 +301,7 @@ class FilePanel(QWidget):
                 self._update_layer_tree()
                 self.file_loaded.emit(filepath)
             except Exception as e:
-                self.info_display.setText(f"Error: {str(e)}")
+                self.info_display.setText(f"{self._tr('error')}: {str(e)}")
     
     def _update_layer_tree(self):
         self.layer_tree.clear()
@@ -311,7 +343,7 @@ class FilePanel(QWidget):
                 if color_index >= 0:
                     return self._aci_to_rgb(color_index)
         except Exception as e:
-            print(f"Layer color conversion error: {str(e)}")
+            print(f"{self._tr('color_conversion_error')}: {str(e)}")
         
         return QColor(255, 255, 255)  # Default white
     
@@ -397,7 +429,7 @@ class FilePanel(QWidget):
             return QColor(0, 0, 0)  # Default black
             
         except Exception as e:
-            print(f"Color conversion error (ACI: {color_index}): {str(e)}")
+            print(f"{self._tr('color_conversion_error')} (ACI: {color_index}): {str(e)}")
             return QColor(0, 0, 0)  # Black in case of error
     
     def _on_layer_visibility_changed(self, item, column):
@@ -412,9 +444,9 @@ class FilePanel(QWidget):
             if layer.dxf.name.lower() != 'defpoints'
         )
         
-        text = f"File: {info.filename}\n"
-        text += f"Layer Count: {actual_layer_count}\n\n"
-        text += "Geometry Types:\n"
+        text = f"{self._tr('file')}: {info.filename}\n"
+        text += f"{self._tr('layer_count')}: {actual_layer_count}\n\n"
+        text += f"{self._tr('geometry_types')}:\n"
         
         # Exclude entities in Defpoints layer
         filtered_counts = {
@@ -426,6 +458,12 @@ class FilePanel(QWidget):
             text += f"- {entity_type}: {count}\n"
         
         self.info_display.setText(text)
+    
+    def _update_info_display_with_current_language(self):
+        """Update info display with current language"""
+        if self.dxf_handler.doc and self.dxf_handler.current_file:
+            info = self.dxf_handler.get_info()
+            self._update_info_display(info)
     
     def _hide_all_layers(self):
         """Hide all layers"""

@@ -7,12 +7,14 @@ import ezdxf
 from ezdxf.math import Vec2
 import math
 import numpy as np
+from translations import Translations
 
 class EntityPropertiesDialog(QDialog):
-    def __init__(self, entity, parent=None):
+    def __init__(self, entity, parent=None, language=Translations.DEFAULT_LANGUAGE):
         super().__init__(parent)
         self.entity = entity
-        self.setWindowTitle("Entity Properties")
+        self.current_language = language
+        self.setWindowTitle(self._tr("entity_properties"))
         self.setMinimumWidth(400)
         self.setStyleSheet("""
             QDialog {
@@ -51,25 +53,35 @@ class EntityPropertiesDialog(QDialog):
         """)
         self._init_ui()
     
+    def _tr(self, key):
+        """Translate text using current language"""
+        return Translations.get(key, self.current_language)
+    
+    def update_language(self, language):
+        """Update dialog language"""
+        self.current_language = language
+        self.setWindowTitle(self._tr("entity_properties"))
+        # Update other UI elements if needed
+    
     def _init_ui(self):
         layout = QFormLayout(self)
         
         # Basic properties
-        self.type_label = QLabel(f"Type: {self.entity.dxftype()}")
+        self.type_label = QLabel(f"{self._tr('type')}: {self.entity.dxftype()}")
         layout.addRow(self.type_label)
         
         # Layer
         self.layer_edit = QLineEdit(self.entity.dxf.layer)
-        layout.addRow("Layer:", self.layer_edit)
+        layout.addRow(f"{self._tr('layer')}:", self.layer_edit)
         
         # Color picker
-        self.color_button = QPushButton("Select Color")
+        self.color_button = QPushButton(self._tr("select_color"))
         self.color_button.clicked.connect(self._select_color)
         if hasattr(self.entity.dxf, 'color'):
             current_color = self.entity.rgb or (0, 0, 0)
             self.current_color = QColor(*current_color)
             self._update_color_button()
-        layout.addRow("Color:", self.color_button)
+        layout.addRow(f"{self._tr('color')}:", self.color_button)
         
         # Entity specific properties
         self._add_specific_properties(layout)
@@ -91,34 +103,34 @@ class EntityPropertiesDialog(QDialog):
             start = self.entity.dxf.start
             self.start_x = QLineEdit(str(start[0]))
             self.start_y = QLineEdit(str(start[1]))
-            layout.addRow("Start X:", self.start_x)
-            layout.addRow("Start Y:", self.start_y)
+            layout.addRow(f"{self._tr('start_x')}:", self.start_x)
+            layout.addRow(f"{self._tr('start_y')}:", self.start_y)
             
             # End point
             end = self.entity.dxf.end
             self.end_x = QLineEdit(str(end[0]))
             self.end_y = QLineEdit(str(end[1]))
-            layout.addRow("End X:", self.end_x)
-            layout.addRow("End Y:", self.end_y)
+            layout.addRow(f"{self._tr('end_x')}:", self.end_x)
+            layout.addRow(f"{self._tr('end_y')}:", self.end_y)
             
         elif entity_type in ('CIRCLE', 'ARC'):
             # Center point
             center = self.entity.dxf.center
             self.center_x = QLineEdit(str(center[0]))
             self.center_y = QLineEdit(str(center[1]))
-            layout.addRow("Center X:", self.center_x)
-            layout.addRow("Center Y:", self.center_y)
+            layout.addRow(f"{self._tr('center_x')}:", self.center_x)
+            layout.addRow(f"{self._tr('center_y')}:", self.center_y)
             
             # Radius
             self.radius = QLineEdit(str(self.entity.dxf.radius))
-            layout.addRow("Radius:", self.radius)
+            layout.addRow(f"{self._tr('radius')}:", self.radius)
             
             if entity_type == 'ARC':
                 # Start and end angles
                 self.start_angle = QLineEdit(str(math.degrees(self.entity.dxf.start_angle)))
                 self.end_angle = QLineEdit(str(math.degrees(self.entity.dxf.end_angle)))
-                layout.addRow("Start Angle:", self.start_angle)
-                layout.addRow("End Angle:", self.end_angle)
+                layout.addRow(f"{self._tr('start_angle')}:", self.start_angle)
+                layout.addRow(f"{self._tr('end_angle')}:", self.end_angle)
     
     def _select_color(self):
         color = QColorDialog.getColor(self.current_color, self)
@@ -134,8 +146,9 @@ class EntityPropertiesDialog(QDialog):
         self.color_button.setText(self.current_color.name())
 
 class DXFCanvas(QWidget):
-    def __init__(self):
+    def __init__(self, language=Translations.DEFAULT_LANGUAGE):
         super().__init__()
+        self.current_language = language
         self._init_ui()
         self.scale = 1.0
         self.pan_x = 0
@@ -167,6 +180,16 @@ class DXFCanvas(QWidget):
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
         
+    def _tr(self, key):
+        """Translate text using current language"""
+        return Translations.get(key, self.current_language)
+    
+    def update_language(self, language):
+        """Update canvas language"""
+        self.current_language = language
+        # No visible text to update in the canvas itself
+        # Context menu will be updated when shown
+    
     def _init_ui(self):
         self.setMinimumSize(400, 300)
         layout = QVBoxLayout(self)
@@ -195,7 +218,7 @@ class DXFCanvas(QWidget):
             self._center_view()
             self.update()
         except Exception as e:
-            print(f"DXF loading error: {str(e)}")
+            print(f"{self._tr('dxf_loading_error')}: {str(e)}")
     
     def _calculate_bounds(self):
         if not self.entities:
@@ -800,16 +823,16 @@ class DXFCanvas(QWidget):
         
         # If there are selected entities
         if self.selected_entities:
-            edit_action = menu.addAction("Edit Properties")
+            edit_action = menu.addAction(self._tr("edit_properties"))
             edit_action.triggered.connect(self._edit_properties)
             
-            delete_action = menu.addAction("Delete")
+            delete_action = menu.addAction(self._tr("delete"))
             delete_action.triggered.connect(self._delete_selected)
             
             menu.addSeparator()
         
         # General menu items
-        clear_selection = menu.addAction("Clear Selection")
+        clear_selection = menu.addAction(self._tr("clear_selection"))
         clear_selection.triggered.connect(self.clear_selection)
         
         menu.exec(self.mapToGlobal(position))
@@ -818,7 +841,7 @@ class DXFCanvas(QWidget):
         # Currently only single entity editing
         if len(self.selected_entities) == 1:
             entity = next(iter(self.selected_entities))
-            dialog = EntityPropertiesDialog(entity, self)
+            dialog = EntityPropertiesDialog(entity, self, self.current_language)
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 self._update_entity_properties(entity, dialog)
                 self.update()

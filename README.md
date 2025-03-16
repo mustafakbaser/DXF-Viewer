@@ -2,7 +2,7 @@
 
 A modern DXF file viewer and editor application with a clean, professional interface.
 
-![DXF Viewer](https://res.cloudinary.com/mustafakbaser/image/upload/v1741992333/DXF-Viewer-2_ffuzc4.png)
+![DXF Viewer](https://res.cloudinary.com/mustafakbaser/image/upload/v1742116434/DXF-Viewer-2_ylkr4j.png)
 
 ## Features
 
@@ -12,6 +12,13 @@ A modern DXF file viewer and editor application with a clean, professional inter
 - Pan by dragging with left mouse button
 - Automatic centering and scaling of loaded drawings
 - High-quality antialiasing for smooth rendering
+
+### Multi-Language Support
+- English and Turkish language options
+- Dynamic language switching without restarting the application
+- Language preference saved between sessions
+- Complete translation of all UI elements, menus, and messages
+- Easy to extend with additional languages
 
 ### Layer Management
 - Show/hide individual layers
@@ -44,6 +51,8 @@ A modern DXF file viewer and editor application with a clean, professional inter
 - Layer tree view
 - Customizable toolbar
 - Fill mode for better visualization
+- Language menu for switching between English and Turkish
+- Persistent settings via JSON configuration
 
 ## Requirements
 
@@ -122,11 +131,16 @@ python src/main.py
    - Select multiple entities: Hold CTRL and drag to create a selection rectangle
    - Clear selection: Right-click and select "Clear Selection"
 
-5. **Entity Editing**:
+5. **Language Settings**:
+   - Change language: Go to Language menu and select English or Turkish
+   - Language preference is automatically saved for future sessions
+   - All UI elements will update immediately to the selected language
+
+6. **Entity Editing**:
    - Edit properties: Select an entity, right-click and select "Edit Properties"
    - Delete entities: Select entities, right-click and select "Delete"
 
-6. **Fill Mode**:
+7. **Fill Mode**:
    - Toggle fill mode: Click the "Fill" button to toggle fill mode for closed entities
 
 ## Project Structure
