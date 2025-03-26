@@ -254,8 +254,7 @@ class DXFCanvas(QWidget):
             elif entity_type == 'SPLINE':
                 try:
                     # Spline points
-                    spline_points = entity.construction_tool().get_points(100)
-                    points = [(p.x, p.y) for p in spline_points]
+                    points = self._spline_points(entity)
                     
                     # Also add control points
                     points.extend(entity.control_points)
@@ -439,10 +438,14 @@ class DXFCanvas(QWidget):
             radius, radius
         )
     
+    def _spline_points(self, entity, segments=100):
+        """Approximate a SPLINE entity as a list of (x, y) points"""
+        spline = entity.construction_tool()
+        return [(p.x, p.y) for p in spline.approximate(segments)]
+    
     def _draw_spline_with_fill(self, painter, entity):
         try:
-            spline_points = entity.construction_tool().get_points(100)
-            points = [(p.x, p.y) for p in spline_points]
+            points = self._spline_points(entity)
             
             if len(points) < 2:
                 return
