@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QRubberBand, QApplication,
 from PyQt6.QtCore import Qt, QPointF, QRectF, QPoint, QRect
 from PyQt6.QtGui import QPainter, QPen, QColor, QBrush, QPainterPath
 import ezdxf
-from ezdxf.math import Vec2
+from ezdxf.math import Vec2, arc_angle_span_deg
 import math
 import numpy as np
 from translations import Translations
@@ -126,9 +126,9 @@ class EntityPropertiesDialog(QDialog):
             layout.addRow(f"{self._tr('radius')}:", self.radius)
             
             if entity_type == 'ARC':
-                # Start and end angles
-                self.start_angle = QLineEdit(str(math.degrees(self.entity.dxf.start_angle)))
-                self.end_angle = QLineEdit(str(math.degrees(self.entity.dxf.end_angle)))
+                # Start and end angles (ezdxf stores them in degrees)
+                self.start_angle = QLineEdit(str(self.entity.dxf.start_angle))
+                self.end_angle = QLineEdit(str(self.entity.dxf.end_angle))
                 layout.addRow(f"{self._tr('start_angle')}:", self.start_angle)
                 layout.addRow(f"{self._tr('end_angle')}:", self.end_angle)
     
@@ -491,8 +491,9 @@ class DXFCanvas(QWidget):
     def _draw_arc(self, painter, entity):
         center = entity.dxf.center
         radius = entity.dxf.radius
-        start_angle = math.degrees(entity.dxf.start_angle)
-        end_angle = math.degrees(entity.dxf.end_angle)
+        # ezdxf stores ARC angles in degrees, counter-clockwise from start to end
+        start_angle = entity.dxf.start_angle
+        span_angle = arc_angle_span_deg(start_angle, entity.dxf.end_angle)
         
         rect = QRectF(
             center[0] - radius,
@@ -500,10 +501,12 @@ class DXFCanvas(QWidget):
             radius * 2,
             radius * 2
         )
+        # drawArc expects 1/16th of a degree; angles are negated because
+        # the Y axis is flipped in paintEvent
         painter.drawArc(
             rect,
-            int(-start_angle * 16),
-            int(-(end_angle - start_angle) * 16)
+            round(-start_angle * 16),
+            round(-span_angle * 16)
         )
     
     def _draw_ellipse(self, painter, entity):
@@ -878,8 +881,8 @@ class DXFCanvas(QWidget):
                                float(dialog.center_y.text()),
                                0)
             entity.dxf.radius = float(dialog.radius.text())
-            entity.dxf.start_angle = math.radians(float(dialog.start_angle.text()))
-            entity.dxf.end_angle = math.radians(float(dialog.end_angle.text()))
+            entity.dxf.start_angle = float(dialog.start_angle.text())
+            entity.dxf.end_angle = float(dialog.end_angle.text())
     
     def _delete_selected(self):
         for entity in self.selected_entities:
