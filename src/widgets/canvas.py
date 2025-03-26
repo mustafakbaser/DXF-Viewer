@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QRubberBand, QApplication,
                            QMenu, QDialog, QFormLayout, QLineEdit, QDialogButtonBox,
-                           QLabel, QColorDialog)
+                           QLabel, QColorDialog, QPushButton)
 from PyQt6.QtCore import Qt, QPointF, QRectF, QPoint, QRect
 from PyQt6.QtGui import QPainter, QPen, QColor, QBrush, QPainterPath
 import ezdxf
